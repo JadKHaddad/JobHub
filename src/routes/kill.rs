@@ -1,4 +1,4 @@
-use crate::server::{state::ServerState, task::Status};
+use crate::server::{state::ApiState, task::Status};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -21,7 +21,7 @@ impl IntoResponse for KillReponse {
 
 #[utoipa::path(
     put,
-    path = "/kill/{id}", 
+    path = "/api/kill/{id}", 
     params(
         ("id" = String, Path, description = "Task id")
     ),
@@ -32,7 +32,7 @@ impl IntoResponse for KillReponse {
     )
 )]
 pub async fn kill(
-    State(state): State<ServerState>,
+    State(state): State<ApiState>,
     Path(id): Path<String>,
 ) -> Result<KillReponse, StatusCode> {
     let status = state.kill_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;

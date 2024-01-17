@@ -9,40 +9,40 @@ use std::{
 };
 use tokio::sync::RwLock;
 
-/// I want my [`ServerState`] to be [`Clone`] and [`Send`] and [`Sync`] as is.
-/// So I'm wrapping [`ServerState::inner`] in an [`Arc`].
+/// I want my [`ApiState`] to be [`Clone`] and [`Send`] and [`Sync`] as is.
+/// So I'm wrapping [`ApiState::inner`] in an [`Arc`].
 #[derive(Clone)]
-pub struct ServerState {
-    inner: Arc<ServerStateInner>,
+pub struct ApiState {
+    inner: Arc<ApiStateInner>,
 }
 
-impl ServerState {
-    pub fn new() -> Self {
+impl ApiState {
+    pub fn new(api_token: String) -> Self {
         Self {
-            inner: Arc::new(ServerStateInner::new()),
+            inner: Arc::new(ApiStateInner::new(api_token)),
         }
     }
-}
 
-impl Default for ServerState {
-    fn default() -> Self {
-        Self::new()
+    pub fn api_token_valid(&self, api_token: &str) -> bool {
+        api_token == self.api_token
     }
 }
 
-pub struct ServerStateInner {
+pub struct ApiStateInner {
+    api_token: String,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
     /// The value is the [`Handle`] of the task ._.
     task_handles: Arc<RwLock<HashMap<String, Handle>>>,
-    /// I'm not wrapping [`ServerStateInner`] in a lock.
+    /// I'm not wrapping [`ApiStateInner`] in a lock.
     /// So it's a good old [`AtomicU32`].
     current_id: AtomicU32,
 }
 
-impl ServerStateInner {
-    pub fn new() -> Self {
+impl ApiStateInner {
+    pub fn new(api_token: String) -> Self {
         Self {
+            api_token,
             task_handles: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
         }
@@ -114,14 +114,8 @@ impl ServerStateInner {
     }
 }
 
-impl Default for ServerStateInner {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Deref for ServerState {
-    type Target = ServerStateInner;
+impl Deref for ApiState {
+    type Target = ApiStateInner;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

@@ -1,4 +1,4 @@
-use crate::server::{state::ServerState, task::Status};
+use crate::server::{state::ApiState, task::Status};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -21,7 +21,7 @@ impl IntoResponse for StatusReponse {
 
 #[utoipa::path(
     get,
-    path = "/status/{id}", 
+    path = "/api/status/{id}", 
     params(
         ("id" = String, Path, description = "Task id")
     ),
@@ -32,7 +32,7 @@ impl IntoResponse for StatusReponse {
     )
 )]
 pub async fn status(
-    State(state): State<ServerState>,
+    State(state): State<ApiState>,
     Path(id): Path<String>,
 ) -> Result<StatusReponse, StatusCode> {
     let status = state.task_status(&id).await.ok_or(StatusCode::NOT_FOUND)?;

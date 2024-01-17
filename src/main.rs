@@ -1,11 +1,23 @@
 use anyhow::Context;
 use axum::{
+    extract::{Request, State},
     http::Method,
+    middleware::{self, Next},
+    response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
-use job_hub::{openapi::ApiDoc, routes, server::state::ServerState};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
+use clap::Parser;
+use job_hub::{
+    cli_args::CliArgs,
+    openapi::ApiDoc,
+    routes,
+    server::{response::ApiError, state::ApiState},
+};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::CorsLayer,
@@ -29,23 +41,31 @@ fn init_tracing() -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    dotenv::dotenv().ok();
+
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "job_hub=debug,tower_http=trace");
     }
 
     init_tracing()?;
 
-    let state = ServerState::new();
+    let cli_args = CliArgs::parse();
 
-    let app = Router::new()
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .merge(Redoc::with_url("/redoc", ApiDoc::openapi()))
-        .merge(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
-        .route("/health", get(|| async { "health" }))
+    let state = ApiState::new(cli_args.api_token);
+
+    let api = Router::new()
         .route("/run", post(routes::run::run))
         .route("/kill/:id", put(routes::kill::kill))
         .route("/status/:id", get(routes::status::status))
-        .with_state(state)
+        .with_state(state.clone())
+        .layer(middleware::from_fn_with_state(state, validate_bearer_token));
+
+    let app = Router::new()
+        .nest("/api", api)
+        .route("/health", get(|| async { "ok" }))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .merge(Redoc::with_url("/redoc", ApiDoc::openapi()))
+        .merge(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
         .layer(
             ServiceBuilder::new()
                 .layer(
@@ -61,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
                 ),
         );
 
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 3000);
+    let addr = cli_args.socket_address;
 
     tracing::info!(%addr, "Starting server");
 
@@ -75,6 +95,24 @@ async fn main() -> anyhow::Result<()> {
         .context("Server failed")?;
 
     Ok(())
+}
+
+async fn validate_bearer_token(
+    State(state): State<ApiState>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    request: Request,
+    next: Next,
+) -> Result<impl IntoResponse, ApiError> {
+    let token = bearer.token();
+
+    if !state.api_token_valid(token) {
+        tracing::warn!(%token, "Invalid bearer token");
+        return Err(ApiError::Unauthorized);
+    }
+
+    let res = next.run(request).await;
+
+    Ok(res)
 }
 
 async fn shutdown_signal() {

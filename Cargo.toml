@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.35.1", features = ["full"] }
 axum = "0.7.4"
+axum-extra = { version = "0.9.2", features = ["typed-header"] }
 serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
 thiserror = "1.0.56"
@@ -20,3 +21,5 @@ utoipa-redoc = { version = "3.0.0", features = ["axum"] }
 utoipa-rapidoc = { version = "3.0.0", features = ["axum"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.1", features = ["trace", "cors"] }
+clap = { version = "4.4.16", features = ["derive", "env"] }
+dotenv = "0.15.0"

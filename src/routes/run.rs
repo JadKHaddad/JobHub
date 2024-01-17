@@ -1,4 +1,4 @@
-use crate::server::state::ServerState;
+use crate::server::state::ApiState;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -22,13 +22,13 @@ impl IntoResponse for RunReponse {
 
 #[utoipa::path(
     post,
-    path = "/run", 
+    path = "/api/run", 
     tag = "task",
     responses(
         (status = 201, description = "Task was creating and is running", body = RunReponse),
     )
 )]
-pub async fn run(State(state): State<ServerState>) -> RunReponse {
+pub async fn run(State(state): State<ApiState>) -> RunReponse {
     let id = state.run_task().await;
 
     RunReponse { id }
