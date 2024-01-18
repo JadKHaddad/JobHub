@@ -1,15 +1,10 @@
 use serde::Serialize;
-use std::{
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tokio::{
     io::AsyncWrite,
     process::Command,
     sync::{
-        mpsc::{self, error::TrySendError},
+        mpsc::{self},
         Notify, RwLock,
     },
 };
@@ -203,6 +198,8 @@ impl Task {
                     if let Err(err) = tokio::io::copy(&mut stdout, &mut write).await {
                         tracing::error!(?err, "Failed to copy stdout to writer");
                     }
+
+                    tracing::debug!("Finished copying stdout to writer");
                 }
             });
         }
@@ -214,6 +211,8 @@ impl Task {
                     if let Err(err) = tokio::io::copy(&mut stderr, &mut write).await {
                         tracing::error!(?err, "Failed to copy stderr to writer");
                     }
+
+                    tracing::debug!("Finished copying stderr to writer");
                 }
             });
         }
@@ -267,54 +266,5 @@ impl Task {
         tracing::debug!("Terminated");
 
         Ok(())
-    }
-}
-
-// dev
-
-#[derive(Debug)]
-pub struct TaskOutputFrame {
-    pub task_id: String,
-    pub output_frame: Vec<u8>,
-}
-
-pub struct TaskOutputFrameMapper {
-    pub task_id: String,
-    pub tx: mpsc::Sender<TaskOutputFrame>,
-}
-
-impl AsyncWrite for TaskOutputFrameMapper {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        let output_frame = buf.to_vec();
-
-        let task_output = TaskOutputFrame {
-            task_id: self.task_id.clone(),
-            output_frame,
-        };
-
-        match self.tx.try_send(task_output) {
-            Ok(_) => Poll::Ready(Ok(buf.len())),
-            Err(err) => match err {
-                TrySendError::Full(_) => {
-                    cx.waker().wake_by_ref();
-                    Poll::Pending
-                }
-                TrySendError::Closed(_) => {
-                    Poll::Ready(Err(std::io::Error::new(std::io::ErrorKind::Other, err)))
-                }
-            },
-        }
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
     }
 }

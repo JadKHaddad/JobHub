@@ -7,7 +7,7 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::RwLock;
+use tokio::{io::AsyncReadExt, sync::RwLock};
 
 /// I want my [`ApiState`] to be [`Clone`] and [`Send`] and [`Sync`] as is.
 /// So I'm wrapping [`ApiState::inner`] in an [`Arc`].
@@ -58,6 +58,7 @@ impl ApiStateInner {
 
     pub async fn run_task(&self) -> String {
         let id = self.increment_current_id().to_string();
+        let task_id = id.clone();
 
         let timeout = std::time::Duration::from_secs(20);
 
@@ -67,8 +68,24 @@ impl ApiStateInner {
         task_handles.insert(id.clone(), task_handle);
 
         tokio::spawn(async move {
+            let (tx, mut rx) = tokio::io::duplex(100);
+
+            tokio::spawn(async move {
+                let mut chunk = [0; 256];
+                while let Ok(n) = rx.read(&mut chunk).await {
+                    if n == 0 {
+                        break;
+                    }
+
+                    let chunk = String::from_utf8_lossy(&chunk[..n]);
+                    tracing::debug!(id=%task_id, "{chunk}");
+                }
+
+                tracing::debug!(id=%task_id, "Finished reading");
+            });
+
             let _ = task
-                .run::<tokio::fs::File, tokio::fs::File>(timeout, None, None)
+                .run::<_, tokio::fs::File>(timeout, Some(tx), None)
                 .await;
 
             // let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskOutputFrame>(100);
