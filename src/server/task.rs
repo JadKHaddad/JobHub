@@ -1,9 +1,9 @@
 use serde::Serialize;
 use std::{sync::Arc, time::Duration};
-use tokio::process::Command;
-use tokio::sync::mpsc;
-use tokio::sync::Notify;
-use tokio::sync::RwLock;
+use tokio::{
+    process::Command,
+    sync::{mpsc, Notify, RwLock},
+};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -22,7 +22,7 @@ pub enum Status {
 #[serde(tag = "operation", content = "data")]
 pub enum FailOperation {
     /// Failed to spawn child
-    OnSpawn(String),
+    OnSpawn,
     /// Failed after timeout
     OnTimeout(OnTimeoutOrKillFailOperation),
     /// Failed after kill signal
@@ -34,12 +34,11 @@ pub enum FailOperation {
 /// On timeout or kill signal we attempt to kill the child process and wait for it to finish.
 /// So we can fail on kill or on wait.
 #[derive(Debug, Clone, Serialize, ToSchema)]
-#[serde(tag = "operation", content = "data")]
 pub enum OnTimeoutOrKillFailOperation {
     /// Failed to kill child
-    OnKill(String),
+    OnKill,
     /// Failed to wait for child
-    OnWait(String),
+    OnWait,
 }
 
 pub struct Data {
@@ -137,7 +136,7 @@ impl Task {
     /// Task status is always set accordingly.
     #[tracing::instrument(skip(self), fields(id=self.id()))]
     pub async fn run(mut self, timeout: Duration) -> Result<(), std::io::Error> {
-        let mut child = match Command::new("cmd")
+        let mut child = match Command::new("cmsd")
             .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
             .spawn()
         {
@@ -145,7 +144,7 @@ impl Task {
             Err(err) => {
                 tracing::error!(?err, "Failed to spawn child");
 
-                self.set_status_and_log(Status::Failed(FailOperation::OnSpawn(err.to_string())))
+                self.set_status_and_log(Status::Failed(FailOperation::OnSpawn))
                     .await;
 
                 return Err(err);
@@ -154,49 +153,46 @@ impl Task {
 
         self.set_status_and_log(Status::Running).await;
 
-        tokio::select! {
+        let status = tokio::select! {
             _ = tokio::time::sleep(timeout) => {
                 tracing::debug!("Timeout");
 
                 if let Err(err) = child.kill().await {
                     tracing::error!(?err, "Failed to kill child");
-                    self.set_status_and_log(Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnKill(err.to_string())))).await;
-                }
-
-                if let Err(err) = child.wait().await {
+                    Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnKill))
+                } else if let Err(err) = child.wait().await {
                     tracing::error!(?err, "Failed to wait for child");
-                    self.set_status_and_log(Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnWait(err.to_string())))).await;
+                    Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnWait))
+                } else {
+                    Status::Timeout
                 }
-
-                self.set_status_and_log(Status::Timeout).await;
             },
             _ = self.wait_for_kill_signal() => {
-
                 if let Err(err) = child.kill().await {
                     tracing::error!(?err, "Failed to kill child");
-                    self.set_status_and_log(Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnKill(err.to_string())))).await;
-                }
-
-                if let Err(err) = child.wait().await {
+                    Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnKill))
+                } else if let Err(err) = child.wait().await {
                     tracing::error!(?err, "Failed to wait for child");
-                    self.set_status_and_log(Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnWait(err.to_string())))).await;
+                    Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnWait))
+                } else {
+                    Status::Killed
                 }
-
-                self.set_status_and_log(Status::Killed).await;
             },
             res = child.wait() => {
                 match res {
-                    Ok(status) => {
-                        tracing::debug!(?status, "Child exited with status");
-                        self.set_status_and_log(Status::Finished).await;
+                    Ok(exit_status) => {
+                        tracing::debug!(?exit_status, "Child exited with status");
+                        Status::Finished
                     },
                     Err(err) => {
                         tracing::error!(?err, "Failed to wait for child");
-                        self.set_status_and_log(Status::Failed(FailOperation::OnWait)).await;
+                        Status::Failed(FailOperation::OnWait)
                     }
                 }
             }
-        }
+        };
+
+        self.set_status_and_log(status).await;
 
         tracing::debug!("Notifying of termination");
         self.termination_notify.notify_waiters();
