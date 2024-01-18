@@ -141,6 +141,10 @@ impl Task {
         tracing::warn!("No more signals");
     }
 
+    // FIXME: Return something taht runs with wait method.
+    // When run is called it should retun this thing that runs if the child spawned successfully.
+    // Spawn erros will be handled by the caller and a fail response will be sent synchronously.
+    // If it returns with waitable, the caller will send a success response and wait for the task to finish asynchronously.
     /// Returns `Err` if the task failed to spawn.
     /// Task status is always set accordingly.
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
@@ -166,12 +170,21 @@ impl Task {
             std::process::Stdio::inherit()
         };
 
-        let mut child = match Command::new("cmd")
+        #[cfg(target_os = "windows")]
+        let child = Command::new("cmd")
             .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
             .stdout(stdout)
             .stderr(stderr)
-            .spawn()
-        {
+            .spawn();
+
+        #[cfg(not(target_os = "windows"))]
+        let child = Command::new("sleep")
+            .args(["10"])
+            .stdout(stdout)
+            .stderr(stderr)
+            .spawn();
+
+        let mut child = match child {
             Ok(child) => child,
             Err(err) => {
                 tracing::error!(?err, "Failed to spawn child");
@@ -256,6 +269,8 @@ impl Task {
         Ok(())
     }
 }
+
+// dev
 
 #[derive(Debug)]
 pub struct TaskOutputFrame {

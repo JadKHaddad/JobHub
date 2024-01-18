@@ -54,6 +54,8 @@ async fn main() -> anyhow::Result<()> {
     let state = ApiState::new(cli_args.api_token);
 
     let api = Router::new()
+        // TODO: Create an extractor for this. From headers 'chat_id.
+        .route("/request_chat_id", get(|| async { "chat_id" }))
         .route("/run", post(routes::run::run))
         .route("/kill/:id", put(routes::kill::kill))
         .route("/status/:id", get(routes::status::status))
