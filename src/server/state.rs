@@ -1,4 +1,4 @@
-use super::task::{Handle, Status, Task};
+use super::task::{Handle, Status, Task, TaskOutputFrame, TaskOutputFrameMapper};
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -58,6 +58,7 @@ impl ApiStateInner {
 
     pub async fn run_task(&self) -> String {
         let id = self.increment_current_id().to_string();
+        let task_id = id.clone();
 
         let timeout = std::time::Duration::from_secs(20);
 
@@ -68,10 +69,21 @@ impl ApiStateInner {
 
         // let task_handles = self.task_handles.clone();
         tokio::spawn(async move {
-            let file = tokio::fs::File::create("out.txt").await.unwrap();
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskOutputFrame>(100);
+            let io_line_mapper = TaskOutputFrameMapper { tx, task_id };
+
+            tokio::spawn(async move {
+                while let Some(task_output_frame) = rx.recv().await {
+                    let task_output_frame =
+                        String::from_utf8_lossy(&task_output_frame.output_frame);
+                    tracing::info!(?task_output_frame);
+                }
+            });
+
+            // let file = tokio::fs::File::create("out.txt").await.unwrap();
 
             let _ = task
-                .run::<_, tokio::fs::File>(timeout, Some(file), None)
+                .run::<_, tokio::fs::File>(timeout, Some(io_line_mapper), None)
                 .await;
             // let mut task_handles = task_handles.write().await;
             // task_handles.remove(&id);
