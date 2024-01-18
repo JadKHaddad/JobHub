@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::{sync::Arc, time::Duration};
 use tokio::{
+    io::AsyncWrite,
     process::Command,
     sync::{mpsc, Notify, RwLock},
 };
@@ -134,10 +135,33 @@ impl Task {
 
     /// Returns `Err` if the task failed to spawn.
     /// Task status is always set accordingly.
-    #[tracing::instrument(skip(self), fields(id=self.id()))]
-    pub async fn run(mut self, timeout: Duration) -> Result<(), std::io::Error> {
-        let mut child = match Command::new("cmsd")
+    #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
+    pub async fn run<O, E>(
+        mut self,
+        timeout: Duration,
+        stdout_writer: Option<O>,
+        stderr_writer: Option<E>,
+    ) -> Result<(), std::io::Error>
+    where
+        O: 'static + AsyncWrite + Unpin + Send,
+        E: 'static + AsyncWrite + Unpin + Send,
+    {
+        let stdout = if stdout_writer.is_some() {
+            std::process::Stdio::piped()
+        } else {
+            std::process::Stdio::inherit()
+        };
+
+        let stderr = if stderr_writer.is_some() {
+            std::process::Stdio::piped()
+        } else {
+            std::process::Stdio::inherit()
+        };
+
+        let mut child = match Command::new("cmd")
             .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
+            .stdout(stdout)
+            .stderr(stderr)
             .spawn()
         {
             Ok(child) => child,
@@ -150,6 +174,28 @@ impl Task {
                 return Err(err);
             }
         };
+
+        if let Some(mut write) = stdout_writer {
+            let stdout = child.stdout.take();
+            tokio::spawn(async move {
+                if let Some(mut stdout) = stdout {
+                    if let Err(err) = tokio::io::copy(&mut stdout, &mut write).await {
+                        tracing::error!(?err, "Failed to copy stdout to writer");
+                    }
+                }
+            });
+        }
+
+        if let Some(mut write) = stderr_writer {
+            let stderr = child.stderr.take();
+            tokio::spawn(async move {
+                if let Some(mut stderr) = stderr {
+                    if let Err(err) = tokio::io::copy(&mut stderr, &mut write).await {
+                        tracing::error!(?err, "Failed to copy stderr to writer");
+                    }
+                }
+            });
+        }
 
         self.set_status_and_log(Status::Running).await;
 

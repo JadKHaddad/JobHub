@@ -68,7 +68,11 @@ impl ApiStateInner {
 
         // let task_handles = self.task_handles.clone();
         tokio::spawn(async move {
-            let _ = task.run(timeout).await;
+            let file = tokio::fs::File::create("out.txt").await.unwrap();
+
+            let _ = task
+                .run::<_, tokio::fs::File>(timeout, Some(file), None)
+                .await;
             // let mut task_handles = task_handles.write().await;
             // task_handles.remove(&id);
         });
