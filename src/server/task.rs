@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{sync::Arc, time::Duration};
+use std::{process::ExitStatus, sync::Arc, time::Duration};
 use tokio::{
     io::AsyncWrite,
     process::Command,
@@ -14,10 +14,10 @@ use utoipa::ToSchema;
 #[serde(tag = "status", content = "data")]
 pub enum Status {
     Created,
-    Failed(FailOperation),
+    Failed { operation: FailOperation },
     Running,
-    Killed,
-    Finished,
+    Canceled,
+    Exited { exit_status: ExitedStatus },
     Timeout,
 }
 
@@ -25,24 +25,46 @@ pub enum Status {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(tag = "operation", content = "data")]
 pub enum FailOperation {
-    /// Failed to spawn child
+    /// Failed to spawn OS process
     OnSpawn,
-    /// Failed after timeout
-    OnTimeout(OnTimeoutOrKillFailOperation),
-    /// Failed after kill signal
-    OnKill(OnTimeoutOrKillFailOperation),
+    /// Failed after timeout while killing OS process
+    AfterTimeoutOnKill,
+    /// Failed after timeout while waiting for OS process
+    AfterTimeoutOnWait,
+    /// Failed after cancel while killing OS process
+    AfterCancelOnKill,
+    /// Failed after cancel while waiting for OS process
+    AfterCancelOnWait,
     /// Failed during wait
     OnWait,
 }
 
-/// On timeout or kill signal we attempt to kill the child process and wait for it to finish.
-/// So we can fail on kill or on wait.
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub enum OnTimeoutOrKillFailOperation {
-    /// Failed to kill child
-    OnKill,
-    /// Failed to wait for child
-    OnWait,
+#[serde(tag = "status", content = "data")]
+pub enum ExitedStatus {
+    /// Exited with success
+    Success,
+    /// Exited with failure
+    Failure { code: Option<i32> },
+}
+
+impl From<ExitStatus> for ExitedStatus {
+    fn from(exit_status: ExitStatus) -> Self {
+        if exit_status.success() {
+            return Self::Success;
+        }
+
+        let code = exit_status.code();
+        Self::Failure { code }
+    }
+}
+
+impl From<ExitStatus> for Status {
+    fn from(exit_status: ExitStatus) -> Self {
+        Self::Exited {
+            exit_status: exit_status.into(),
+        }
+    }
 }
 
 pub struct Data {
@@ -65,15 +87,20 @@ impl Handle {
         &self.data.id
     }
 
-    #[tracing::instrument(name = "kill", skip(self), fields(id=self.id()))]
-    pub async fn kill(&self) {
+    /// If called before running the task, the task will be canceled immediately after spawning.
+    // Problem: we should be able to cancel a task before it even starts. because it might take a long time to start or we might recieve a very qiuick cancel signal from client.
+    // We also want this function to wait for the task to finish. So we can get the right status of the task after canceling it.
+    // FIXME: find a way to wait for termination signal without &mut self.
+    #[tracing::instrument(name = "cancel", skip(self), fields(id=self.id()))]
+    pub async fn cancel(&self) {
         match self.tx.send(()).await {
             Ok(_) => {
-                tracing::info!("Sent kill signal. Waiting for termination");
+                tracing::info!("Sent cancel signal. Waiting for termination");
 
-                let _ = self.termination_notify.notified().await;
+                // if this code is called before the task is spawned we deadlock here.
+                // let _ = self.termination_notify.notified().await;
             }
-            Err(_) => tracing::warn!("Failed to send kill signal"),
+            Err(_) => tracing::warn!("Failed to send cancel signal"),
         }
     }
 }
@@ -125,10 +152,10 @@ impl Task {
         self.set_status(status).await;
     }
 
-    #[tracing::instrument(name = "kill", skip_all)]
-    async fn wait_for_kill_signal(&mut self) {
+    #[tracing::instrument(name = "cancel", skip_all)]
+    async fn wait_for_cancel_signal(&mut self) {
         if self.rx.recv().await.is_some() {
-            tracing::info!("Received kill signal");
+            tracing::info!("Received cancel signal");
 
             return;
         }
@@ -156,36 +183,40 @@ impl Task {
         let stdout = if stdout_writer.is_some() {
             std::process::Stdio::piped()
         } else {
-            std::process::Stdio::inherit()
+            std::process::Stdio::null()
         };
 
         let stderr = if stderr_writer.is_some() {
             std::process::Stdio::piped()
         } else {
-            std::process::Stdio::inherit()
+            std::process::Stdio::null()
         };
 
-        #[cfg(target_os = "windows")]
-        let child = Command::new("cmd")
-            .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
-            .stdout(stdout)
-            .stderr(stderr)
-            .spawn();
-
-        #[cfg(not(target_os = "windows"))]
-        let child = Command::new("sleep")
-            .args(["10"])
-            .stdout(stdout)
-            .stderr(stderr)
-            .spawn();
+        let child = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
+                .stdout(stdout)
+                .stderr(stderr)
+                .stdin(std::process::Stdio::null())
+                .spawn()
+        } else {
+            Command::new("sleep")
+                .args(["10"])
+                .stdout(stdout)
+                .stderr(stderr)
+                .stdin(std::process::Stdio::null())
+                .spawn()
+        };
 
         let mut child = match child {
             Ok(child) => child,
             Err(err) => {
                 tracing::error!(?err, "Failed to spawn child");
 
-                self.set_status_and_log(Status::Failed(FailOperation::OnSpawn))
-                    .await;
+                self.set_status_and_log(Status::Failed {
+                    operation: FailOperation::OnSpawn,
+                })
+                .await;
 
                 return Err(err);
             }
@@ -224,35 +255,39 @@ impl Task {
                 tracing::debug!("Timeout");
 
                 if let Err(err) = child.kill().await {
-                    tracing::error!(?err, "Failed to kill child");
-                    Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnKill))
+                    tracing::error!(?err, "Failed to kill OS process");
+                    Status::Failed{
+                        operation: FailOperation::AfterTimeoutOnKill
+                    }
                 } else if let Err(err) = child.wait().await {
-                    tracing::error!(?err, "Failed to wait for child");
-                    Status::Failed(FailOperation::OnTimeout(OnTimeoutOrKillFailOperation::OnWait))
+                    tracing::error!(?err, "Failed to wait for OS process");
+                    Status::Failed{
+                        operation: FailOperation::AfterTimeoutOnWait
+                    }
                 } else {
                     Status::Timeout
                 }
             },
-            _ = self.wait_for_kill_signal() => {
+            _ = self.wait_for_cancel_signal() => {
                 if let Err(err) = child.kill().await {
-                    tracing::error!(?err, "Failed to kill child");
-                    Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnKill))
+                    tracing::error!(?err, "Failed to kill OS process");
+                    Status::Failed { operation: FailOperation::AfterCancelOnKill }
                 } else if let Err(err) = child.wait().await {
-                    tracing::error!(?err, "Failed to wait for child");
-                    Status::Failed(FailOperation::OnKill(OnTimeoutOrKillFailOperation::OnWait))
+                    tracing::error!(?err, "Failed to wait for OS process");
+                    Status::Failed{ operation: FailOperation::AfterCancelOnWait }
                 } else {
-                    Status::Killed
+                    Status::Canceled
                 }
             },
             res = child.wait() => {
                 match res {
                     Ok(exit_status) => {
-                        tracing::debug!(?exit_status, "Child exited with status");
-                        Status::Finished
+                        tracing::debug!(?exit_status, "OS process exited with status");
+                        Status::from(exit_status)
                     },
                     Err(err) => {
-                        tracing::error!(?err, "Failed to wait for child");
-                        Status::Failed(FailOperation::OnWait)
+                        tracing::error!(?err, "Failed to wait for OS process");
+                        Status::Failed{ operation: FailOperation::OnWait }
                     }
                 }
             }

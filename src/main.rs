@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
         // TODO: Create an extractor for this. From headers 'chat_id.
         .route("/request_chat_id", get(|| async { "chat_id" }))
         .route("/run", post(routes::run::run))
-        .route("/kill/:id", put(routes::kill::kill))
+        .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(state, validate_bearer_token));

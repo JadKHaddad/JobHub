@@ -64,29 +64,50 @@ impl ApiStateInner {
 
         let (task, task_handle) = Task::new(id.clone());
 
+        // Test canceling the task before running it. and expect it to be canceled immediately after running.
+        // FIXME: deadlock here.
+        // task_handle.cancel().await;
+
         let mut task_handles = self.task_handles.write().await;
         task_handles.insert(id.clone(), task_handle);
 
         tokio::spawn(async move {
-            let (tx, mut rx) = tokio::io::duplex(100);
+            let (stdout_tx, mut stdout_rx) = tokio::io::duplex(100);
+            let (stderr_tx, mut stderr_rx) = tokio::io::duplex(100);
 
+            let stdout_task_id = task_id.clone();
+            let stderr_task_id = task_id;
+
+            // While forwarding the outputs we can save the chunks to the database or send them to a client.
             tokio::spawn(async move {
                 let mut chunk = [0; 256];
-                while let Ok(n) = rx.read(&mut chunk).await {
+                while let Ok(n) = stdout_rx.read(&mut chunk).await {
                     if n == 0 {
                         break;
                     }
 
                     let chunk = String::from_utf8_lossy(&chunk[..n]);
-                    tracing::debug!(id=%task_id, "{chunk}");
+                    tracing::debug!(id=%stdout_task_id, "{chunk}");
                 }
 
-                tracing::debug!(id=%task_id, "Finished reading");
+                tracing::debug!(id=%stdout_task_id, "Finished reading stdout");
             });
 
-            let _ = task
-                .run::<_, tokio::fs::File>(timeout, Some(tx), None)
-                .await;
+            tokio::spawn(async move {
+                let mut chunk = [0; 256];
+                while let Ok(n) = stderr_rx.read(&mut chunk).await {
+                    if n == 0 {
+                        break;
+                    }
+
+                    let chunk = String::from_utf8_lossy(&chunk[..n]);
+                    tracing::error!(id=%stderr_task_id, "{chunk}");
+                }
+
+                tracing::debug!(id=%stderr_task_id, "Finished reading stderr");
+            });
+
+            let _ = task.run(timeout, Some(stdout_tx), Some(stderr_tx)).await;
 
             // let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskOutputFrame>(100);
             // let io_line_mapper = TaskOutputFrameMapper { tx, task_id };
@@ -108,7 +129,7 @@ impl ApiStateInner {
         id
     }
 
-    pub async fn kill_task(&self, id: &str) -> Option<Status> {
+    pub async fn cancel_task(&self, id: &str) -> Option<Status> {
         let mut task_handles = self.task_handles.write().await;
 
         // match task_handles.remove(&id) {
@@ -122,7 +143,7 @@ impl ApiStateInner {
 
         match task_handles.get_mut(id) {
             Some(task_handle) => {
-                task_handle.kill().await;
+                task_handle.cancel().await;
 
                 let status = task_handle.status().await;
 

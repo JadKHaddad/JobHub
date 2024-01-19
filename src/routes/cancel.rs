@@ -9,11 +9,11 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct KillReponse {
+pub struct CancelReponse {
     status: Status,
 }
 
-impl IntoResponse for KillReponse {
+impl IntoResponse for CancelReponse {
     fn into_response(self) -> Response {
         (StatusCode::ACCEPTED, Json(self)).into_response()
     }
@@ -21,21 +21,21 @@ impl IntoResponse for KillReponse {
 
 #[utoipa::path(
     put,
-    path = "/api/kill/{id}", 
+    path = "/api/cancel/{id}", 
     params(
         ("id" = String, Path, description = "Task id")
     ),
     tag = "task",
     responses(
-        (status = 202, description = "Task was killed", body = KillReponse, example = json!(KillReponse{status: Status::Killed})),
+        (status = 202, description = "Task was canceled", body = CancelReponse, example = json!(CancelReponse{status: Status::Canceled})),
         (status = 400, description = "Task not found"),
     )
 )]
-pub async fn kill(
+pub async fn cancel(
     State(state): State<ApiState>,
     Path(id): Path<String>,
-) -> Result<KillReponse, StatusCode> {
-    let status = state.kill_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;
+) -> Result<CancelReponse, StatusCode> {
+    let status = state.cancel_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;
 
-    Ok(KillReponse { status })
+    Ok(CancelReponse { status })
 }

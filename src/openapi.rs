@@ -4,13 +4,13 @@ use utoipa::OpenApi;
 #[openapi(
     paths(
         crate::routes::run::run,
-        crate::routes::kill::kill,
+        crate::routes::cancel::cancel,
         crate::routes::status::status,
     ),
     components(schemas(
         crate::server::task::Status,
         crate::routes::run::RunReponse,
-        crate::routes::kill::KillReponse,
+        crate::routes::cancel::CancelReponse,
         crate::routes::status::StatusReponse,
     )),
     servers(
