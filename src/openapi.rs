@@ -1,5 +1,8 @@
 use utoipa::{
-    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    openapi::{
+        security::{ApiKey, ApiKeyValue, SecurityScheme},
+        OpenApi as OpenApiDoc, OpenApiBuilder, Server,
+    },
     Modify, OpenApi,
 };
 
@@ -16,12 +19,9 @@ use utoipa::{
         crate::routes::cancel::CancelReponse,
         crate::routes::status::StatusReponse,
     )),
-    servers(
-        (url = "https://gpt.jadkhaddad.com"), 
-    ),
     modifiers(&SecurityAddon),
 )]
-pub struct ApiDoc;
+struct ApiDoc;
 
 struct SecurityAddon;
 
@@ -34,4 +34,20 @@ impl Modify for SecurityAddon {
             )
         }
     }
+}
+
+pub fn build_openapi(public_domain_urls: Vec<String>) -> OpenApiDoc {
+    let openapi = ApiDoc::openapi();
+
+    OpenApiBuilder::new()
+        .paths(openapi.paths)
+        .components(openapi.components)
+        .security(openapi.security)
+        .servers(Some(
+            public_domain_urls
+                .into_iter()
+                .map(Server::new)
+                .collect::<Vec<_>>(),
+        ))
+        .build()
 }

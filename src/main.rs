@@ -13,7 +13,7 @@ use axum_extra::{headers::UserAgent, TypedHeader};
 use clap::Parser;
 use job_hub::{
     cli_args::CliArgs,
-    openapi::ApiDoc,
+    openapi::build_openapi,
     routes,
     server::{response::ApiError, state::ApiState},
 };
@@ -23,7 +23,6 @@ use tower_http::{
     services::ServeDir,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
-use utoipa::OpenApi;
 use utoipa_rapidoc::RapiDoc;
 use utoipa_redoc::{Redoc, Servable};
 use utoipa_swagger_ui::SwaggerUi;
@@ -66,14 +65,17 @@ async fn main() -> anyhow::Result<()> {
 
     let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
 
+    let public_domains = cli_args.public_domain_urls;
+    let openapi = build_openapi(public_domains);
+
     let app = Router::new()
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .nest("/api", api)
         .route("/health", get(|| async { "ok" }))
         .route("/ws", get(ws_handler))
         .with_state(state)
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .merge(Redoc::with_url("/redoc", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi.clone()))
+        .merge(Redoc::with_url("/redoc", openapi))
         .merge(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
         .layer(
             ServiceBuilder::new()
