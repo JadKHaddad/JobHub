@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "job_hub=debug,tower_http=trace");
+        std::env::set_var("RUST_LOG", "job_hub=trace,tower_http=trace");
     }
 
     init_tracing()?;

@@ -54,7 +54,7 @@ impl ApiState {
 
 pub struct ApiStateInner {
     api_token: String,
-    connection_manager: ConnectionManager,
+    connection_manager: Arc<ConnectionManager>,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
     /// The value is the [`Handle`] of the task ._.
@@ -68,7 +68,7 @@ impl ApiStateInner {
     pub fn new(api_token: String) -> Self {
         Self {
             api_token,
-            connection_manager: ConnectionManager::new(),
+            connection_manager: Arc::new(ConnectionManager::new()),
             task_handles: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
         }
@@ -223,5 +223,11 @@ impl Deref for ApiState {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl Drop for ApiStateInner {
+    fn drop(&mut self) {
+        tracing::trace!("Api state inner dropped");
     }
 }

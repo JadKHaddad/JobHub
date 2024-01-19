@@ -7,7 +7,11 @@ use futures::{
 use std::net::SocketAddr;
 use tokio::sync::{broadcast, mpsc};
 
-#[derive(Clone)]
+enum WSChannelInternalAction {
+    Send(Message),
+    Close,
+}
+
 pub struct ConnectionManager {
     pub broadcast_sender: broadcast::Sender<ServerMessage>,
 }
@@ -27,7 +31,7 @@ impl ConnectionManager {
     async fn process_incoming(
         addr: SocketAddr,
         client_messages_sender: mpsc::Sender<ClientMessage>,
-        close_sender: mpsc::Sender<()>,
+        internal_sender: mpsc::Sender<WSChannelInternalAction>,
         mut ws_receiver: SplitStream<WebSocket>,
     ) {
         while let Some(Ok(msg)) = ws_receiver.next().await {
@@ -40,7 +44,22 @@ impl ConnectionManager {
                     continue;
                 }
                 Message::Ping(_) => {
-                    tracing::warn!("Ping message received. Ignoring");
+                    tracing::trace!("Ping message received. Responding with Pong");
+                    let pong_response = Message::Pong(vec![]);
+
+                    match internal_sender
+                        .send(WSChannelInternalAction::Send(pong_response))
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(err) => {
+                            tracing::error!(
+                                ?err,
+                                "Failed to send pong response. Sender was probably dropped"
+                            );
+                        }
+                    }
+
                     continue;
                 }
                 Message::Pong(_) => {
@@ -70,7 +89,7 @@ impl ConnectionManager {
             }
         }
 
-        match close_sender.send(()).await {
+        match internal_sender.send(WSChannelInternalAction::Close).await {
             Ok(_) => {}
             Err(err) => {
                 tracing::error!(
@@ -87,20 +106,28 @@ impl ConnectionManager {
     async fn process_outgoing(
         addr: SocketAddr,
         mut broadcast_receiver: broadcast::Receiver<ServerMessage>,
-        mut close_receiver: mpsc::Receiver<()>,
+        mut internal_receiver: mpsc::Receiver<WSChannelInternalAction>,
         mut ws_sender: SplitSink<WebSocket, Message>,
     ) {
-        tokio::select! {
-            _ = close_receiver.recv() => {
-                tracing::debug!("Received close signal");
-            }
-            _ = async move {
-                    while let Ok(msg) = broadcast_receiver.recv().await {
-                        let msg = serde_json::to_string(&msg).unwrap_or_default();
-                        let msg = Message::Text(msg);
+        loop {
+            let msg = tokio::select! {
+                msg = internal_receiver.recv() => {msg}
+                msg = async {
+                        if let Ok(msg) = broadcast_receiver.recv().await {
+                            let msg = serde_json::to_string(&msg).unwrap_or_default();
+                            let msg = Message::Text(msg);
+                            let msg = WSChannelInternalAction::Send(msg);
+                            return Some(msg)
+                        }
 
+                        None
+                } => { msg }
+            };
+
+            if let Some(msg) = msg {
+                match msg {
+                    WSChannelInternalAction::Send(msg) => {
                         tracing::trace!(?msg, "Sending message");
-
                         match ws_sender.send(msg).await {
                             Ok(_) => {}
                             Err(err) => {
@@ -109,7 +136,13 @@ impl ConnectionManager {
                             }
                         }
                     }
-            } => {}
+
+                    WSChannelInternalAction::Close => {
+                        tracing::debug!("Closing connection");
+                        break;
+                    }
+                }
+            }
         }
 
         tracing::debug!("Sender closed");
@@ -126,20 +159,20 @@ impl ConnectionManager {
         tracing::info!(%user_agent, "Connected");
 
         let (ws_sender, ws_receiver) = socket.split();
-        let (close_sender, close_receiver) = mpsc::channel(1);
+        let (internal_sender, internal_receiver) = mpsc::channel(1);
         let broadcast_receiver = self.broadcast_sender.subscribe();
 
         let mut recv_task = tokio::spawn(ConnectionManager::process_incoming(
             addr,
             client_messages_sender,
-            close_sender,
+            internal_sender,
             ws_receiver,
         ));
 
         let mut send_task = tokio::spawn(ConnectionManager::process_outgoing(
             addr,
             broadcast_receiver,
-            close_receiver,
+            internal_receiver,
             ws_sender,
         ));
 
@@ -159,5 +192,11 @@ impl ConnectionManager {
 impl Default for ConnectionManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for ConnectionManager {
+    fn drop(&mut self) {
+        tracing::trace!("Connection manager dropped");
     }
 }
