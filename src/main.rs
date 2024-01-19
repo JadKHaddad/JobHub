@@ -3,16 +3,13 @@ use std::{net::SocketAddr, path::PathBuf};
 use anyhow::Context;
 use axum::{
     extract::{ConnectInfo, Request, State, WebSocketUpgrade},
-    http::Method,
+    http::{HeaderMap, Method},
     middleware::{self, Next},
     response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
-use axum_extra::{
-    headers::{authorization::Bearer, Authorization, UserAgent},
-    TypedHeader,
-};
+use axum_extra::{headers::UserAgent, TypedHeader};
 use clap::Parser;
 use job_hub::{
     cli_args::CliArgs,
@@ -114,14 +111,24 @@ async fn main() -> anyhow::Result<()> {
 
 async fn validate_bearer_token(
     State(state): State<ApiState>,
-    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    headers: HeaderMap,
     request: Request,
     next: Next,
 ) -> Result<impl IntoResponse, ApiError> {
-    let token = bearer.token();
+    let api_key = headers
+        .get("api_key")
+        .ok_or_else(|| {
+            tracing::warn!("api_key header not present");
+            ApiError::Unauthorized
+        })?
+        .to_str()
+        .map_err(|_| {
+            tracing::warn!("Failed to convert api_key header into str");
+            ApiError::Unauthorized
+        })?;
 
-    if !state.api_token_valid(token) {
-        tracing::warn!(%token, "Invalid bearer token");
+    if !state.api_token_valid(api_key) {
+        tracing::warn!(%api_key, "Invalid api_key");
         return Err(ApiError::Unauthorized);
     }
 

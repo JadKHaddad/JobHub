@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 #[derive(Serialize, ToSchema)]
 pub struct CancelReponse {
     /// Task id that was scheduled for cancellation
+    #[schema(example = "0")]
     id: String,
 }
 
@@ -30,6 +31,9 @@ impl IntoResponse for CancelReponse {
     responses(
         (status = 202, description = "Task was scheduled for cancellation", body = CancelReponse, example = json!(CancelReponse{id: String::from("some-id")})),
         (status = 400, description = "Task not found"),
+    ),
+    security(
+        ("api_key" = [])
     )
 )]
 pub async fn cancel(

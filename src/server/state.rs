@@ -158,7 +158,7 @@ impl ApiStateInner {
                 tracing::debug!(id=%stderr_task_id, "Finished reading stderr");
             });
 
-            let _ = task.run(timeout, Some(stdout_tx), Some(stderr_tx)).await;
+            task.run(timeout, Some(stdout_tx), Some(stderr_tx)).await;
 
             // let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskOutputFrame>(100);
             // let io_line_mapper = TaskOutputFrameMapper { tx, task_id };

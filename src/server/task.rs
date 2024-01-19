@@ -154,20 +154,13 @@ impl Task {
         tracing::warn!("No more signals. Handle was probably dropped");
     }
 
-    // FIXME: Return something taht runs with wait method.
-    // When run is called it should retun this thing that runs if the child spawned successfully.
-    // Spawn erros will be handled by the caller and a fail response will be sent synchronously.
-    // If it returns with waitable, the caller will send a success response and wait for the task to finish asynchronously.
-    /// Returns `Err` if the task failed to spawn.
-    /// Task status is always set accordingly.
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
     pub async fn run<O, E>(
         mut self,
         timeout: Duration,
         stdout_writer: Option<O>,
         stderr_writer: Option<E>,
-    ) -> Result<(), std::io::Error>
-    where
+    ) where
         O: 'static + AsyncWrite + Unpin + Send,
         E: 'static + AsyncWrite + Unpin + Send,
     {
@@ -207,7 +200,7 @@ impl Task {
                 })
                 .await;
 
-                return Err(err);
+                return;
             }
         };
 
@@ -307,7 +300,5 @@ impl Task {
         self.set_status_and_log(status).await;
 
         tracing::debug!("Terminated");
-
-        Ok(())
     }
 }

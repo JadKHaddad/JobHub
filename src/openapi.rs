@@ -1,4 +1,7 @@
-use utoipa::OpenApi;
+use utoipa::{
+    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    Modify, OpenApi,
+};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -14,7 +17,21 @@ use utoipa::OpenApi;
         crate::routes::status::StatusReponse,
     )),
     servers(
-        (url = "http://134.122.85.124:3000"), 
-    )
+        (url = "http://localhost:3000"), 
+    ),
+    modifiers(&SecurityAddon),
 )]
 pub struct ApiDoc;
+
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "api_key",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("api_key"))),
+            )
+        }
+    }
+}

@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
 pub struct StatusReponse {
+    /// Status of a given task
     status: Status,
 }
 
@@ -29,6 +30,9 @@ impl IntoResponse for StatusReponse {
     responses(
         (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Running})),
         (status = 400, description = "Task not found"),
+    ),
+    security(
+        ("api_key" = [])
     )
 )]
 pub async fn status(
