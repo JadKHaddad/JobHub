@@ -5,7 +5,7 @@ use tokio::{
     process::Command,
     sync::{
         mpsc::{self},
-        Notify, RwLock,
+        RwLock,
     },
 };
 use utoipa::ToSchema;
@@ -73,8 +73,10 @@ pub struct Data {
 }
 
 pub struct Handle {
+    /// Used to send cancel signal to the task
+    ///
+    /// This is not a CancellationToken because dropping the handle should cancel the task
     tx: mpsc::Sender<()>,
-    termination_notify: Arc<Notify>,
     data: Arc<Data>,
 }
 
@@ -88,34 +90,29 @@ impl Handle {
     }
 
     /// If called before running the task, the task will be canceled immediately after spawning.
-    // Problem: we should be able to cancel a task before it even starts. because it might take a long time to start or we might recieve a very qiuick cancel signal from client.
-    // We also want this function to wait for the task to finish. So we can get the right status of the task after canceling it.
-    // FIXME: find a way to wait for termination signal without &mut self.
-    #[tracing::instrument(name = "cancel", skip(self), fields(id=self.id()))]
-    pub async fn cancel(&self) {
+    ///
+    /// This will not wait for the task to finish. Waiting for the task to finish may cause a bad response times for the api.
+    /// Running tasks will be locked until the task is finished, which may take a long time.
+    /// Locking the tasks will prevent other tasks from running or even canceling.
+    #[tracing::instrument(name = "cancel_siganl", skip(self), fields(id=self.id()))]
+    pub async fn send_cancel_signal(&self) {
         match self.tx.send(()).await {
             Ok(_) => {
                 tracing::info!("Sent cancel signal. Waiting for termination");
-
-                // if this code is called before the task is spawned we deadlock here.
-                // let _ = self.termination_notify.notified().await;
             }
-            Err(_) => tracing::warn!("Failed to send cancel signal"),
+            Err(_) => tracing::warn!("Failed to send cancel signal. Taks was probably dropped"),
         }
     }
 }
 
 pub struct Task {
     rx: mpsc::Receiver<()>,
-    termination_notify: Arc<Notify>,
     data: Arc<Data>,
 }
 
 impl Task {
     pub fn new(id: String) -> (Self, Handle) {
         let (tx, rx) = mpsc::channel(1);
-
-        let termination_notify = Arc::new(Notify::new());
 
         let data = Arc::new(Data {
             id,
@@ -124,15 +121,10 @@ impl Task {
 
         let handle = Handle {
             tx,
-            termination_notify: termination_notify.clone(),
             data: data.clone(),
         };
 
-        let task = Self {
-            rx,
-            termination_notify,
-            data,
-        };
+        let task = Self { rx, data };
 
         (task, handle)
     }
@@ -152,7 +144,7 @@ impl Task {
         self.set_status(status).await;
     }
 
-    #[tracing::instrument(name = "cancel", skip_all)]
+    #[tracing::instrument(name = "cancel_siganl", skip_all)]
     async fn wait_for_cancel_signal(&mut self) {
         if self.rx.recv().await.is_some() {
             tracing::info!("Received cancel signal");
@@ -160,7 +152,7 @@ impl Task {
             return;
         }
 
-        tracing::warn!("No more signals");
+        tracing::warn!("No more signals. Handle was probably dropped");
     }
 
     // FIXME: Return something taht runs with wait method.
@@ -294,9 +286,6 @@ impl Task {
         };
 
         self.set_status_and_log(status).await;
-
-        tracing::debug!("Notifying of termination");
-        self.termination_notify.notify_waiters();
 
         tracing::debug!("Terminated");
 

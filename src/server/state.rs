@@ -64,9 +64,14 @@ impl ApiStateInner {
 
         let (task, task_handle) = Task::new(id.clone());
 
+        // TODO: Move to tests
+        // {
         // Test canceling the task before running it. and expect it to be canceled immediately after running.
-        // FIXME: deadlock here.
         // task_handle.cancel().await;
+
+        // Test dropping the handle before running the task. and expect it to be canceled immediately after running.
+        // drop(task_handle);
+        // }
 
         let mut task_handles = self.task_handles.write().await;
         task_handles.insert(id.clone(), task_handle);
@@ -129,8 +134,9 @@ impl ApiStateInner {
         id
     }
 
-    pub async fn cancel_task(&self, id: &str) -> Option<Status> {
-        let mut task_handles = self.task_handles.write().await;
+    /// Send a cancel signal to the task with the given id and return immediately.
+    pub async fn cancel_task<'a>(&self, id: &'a str) -> Option<&'a str> {
+        // let mut task_handles = self.task_handles.write().await;
 
         // match task_handles.remove(&id) {
         //     Some(task_handle) => {
@@ -141,13 +147,12 @@ impl ApiStateInner {
         //     None => None,
         // }
 
-        match task_handles.get_mut(id) {
+        let task_handles = self.task_handles.read().await;
+        match task_handles.get(id) {
             Some(task_handle) => {
-                task_handle.cancel().await;
+                task_handle.send_cancel_signal().await;
 
-                let status = task_handle.status().await;
-
-                Some(status)
+                Some(id)
             }
             None => None,
         }

@@ -1,4 +1,4 @@
-use crate::server::{state::ApiState, task::Status};
+use crate::server::state::ApiState;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -10,7 +10,8 @@ use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
 pub struct CancelReponse {
-    status: Status,
+    /// Task id that was scheduled for cancellation
+    id: String,
 }
 
 impl IntoResponse for CancelReponse {
@@ -27,7 +28,7 @@ impl IntoResponse for CancelReponse {
     ),
     tag = "task",
     responses(
-        (status = 202, description = "Task was canceled", body = CancelReponse, example = json!(CancelReponse{status: Status::Canceled})),
+        (status = 202, description = "Task was scheduled for cancellation", body = CancelReponse, example = json!(CancelReponse{id: String::from("some-id")})),
         (status = 400, description = "Task not found"),
     )
 )]
@@ -35,7 +36,7 @@ pub async fn cancel(
     State(state): State<ApiState>,
     Path(id): Path<String>,
 ) -> Result<CancelReponse, StatusCode> {
-    let status = state.cancel_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;
+    let _ = state.cancel_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;
 
-    Ok(CancelReponse { status })
+    Ok(CancelReponse { id })
 }
