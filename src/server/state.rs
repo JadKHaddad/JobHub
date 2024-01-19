@@ -1,4 +1,9 @@
-use super::task::{Handle, Status, Task};
+use crate::server::ws::{IoType, ServerMessage, TaskIoChunk};
+
+use super::{
+    connection_manager::ConnectionManager,
+    task::{Handle, Status, Task},
+};
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -30,6 +35,7 @@ impl ApiState {
 
 pub struct ApiStateInner {
     api_token: String,
+    pub connection_manager: ConnectionManager,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
     /// The value is the [`Handle`] of the task ._.
@@ -43,6 +49,7 @@ impl ApiStateInner {
     pub fn new(api_token: String) -> Self {
         Self {
             api_token,
+            connection_manager: ConnectionManager::new(),
             task_handles: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
         }
@@ -76,12 +83,16 @@ impl ApiStateInner {
         let mut task_handles = self.task_handles.write().await;
         task_handles.insert(id.clone(), task_handle);
 
+        let connection_manager = self.connection_manager.clone();
         tokio::spawn(async move {
             let (stdout_tx, mut stdout_rx) = tokio::io::duplex(100);
             let (stderr_tx, mut stderr_rx) = tokio::io::duplex(100);
 
             let stdout_task_id = task_id.clone();
             let stderr_task_id = task_id;
+
+            let stdout_connection_manager = connection_manager.clone();
+            let stderr_connection_manager = connection_manager;
 
             // While forwarding the outputs we can save the chunks to the database or send them to a client.
             tokio::spawn(async move {
@@ -93,6 +104,14 @@ impl ApiStateInner {
 
                     let chunk = String::from_utf8_lossy(&chunk[..n]);
                     tracing::debug!(id=%stdout_task_id, "{chunk}");
+
+                    let msg = ServerMessage::TaskIoChunk(TaskIoChunk {
+                        id: stdout_task_id.clone(),
+                        chunk: chunk.to_string(),
+                        io_type: IoType::Stdout,
+                    });
+
+                    stdout_connection_manager.broadcast(msg);
                 }
 
                 tracing::debug!(id=%stdout_task_id, "Finished reading stdout");
@@ -107,6 +126,14 @@ impl ApiStateInner {
 
                     let chunk = String::from_utf8_lossy(&chunk[..n]);
                     tracing::error!(id=%stderr_task_id, "{chunk}");
+
+                    let msg = ServerMessage::TaskIoChunk(TaskIoChunk {
+                        id: stderr_task_id.clone(),
+                        chunk: chunk.to_string(),
+                        io_type: IoType::Stderr,
+                    });
+
+                    stderr_connection_manager.broadcast(msg);
                 }
 
                 tracing::debug!(id=%stderr_task_id, "Finished reading stderr");

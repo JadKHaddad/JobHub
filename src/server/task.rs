@@ -188,14 +188,12 @@ impl Task {
                 .args(["/C", "timeout", "/T", "100", "/NOBREAK"])
                 .stdout(stdout)
                 .stderr(stderr)
-                .stdin(std::process::Stdio::null())
                 .spawn()
         } else {
             Command::new("sleep")
                 .args(["1000"])
                 .stdout(stdout)
                 .stderr(stderr)
-                .stdin(std::process::Stdio::null())
                 .spawn()
         };
 

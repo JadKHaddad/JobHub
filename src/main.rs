@@ -14,7 +14,6 @@ use axum_extra::{
     TypedHeader,
 };
 use clap::Parser;
-use futures::StreamExt;
 use job_hub::{
     cli_args::CliArgs,
     openapi::ApiDoc,
@@ -64,7 +63,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(state, validate_bearer_token));
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            validate_bearer_token,
+        ));
 
     let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
 
@@ -73,6 +75,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", api)
         .route("/health", get(|| async { "ok" }))
         .route("/ws", get(ws_handler))
+        .with_state(state)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(Redoc::with_url("/redoc", ApiDoc::openapi()))
         .merge(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
@@ -129,6 +132,7 @@ async fn validate_bearer_token(
 }
 
 async fn ws_handler(
+    State(state): State<ApiState>,
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -139,16 +143,11 @@ async fn ws_handler(
         String::from("Unknown browser")
     };
 
-    ws.on_upgrade(move |socket| async move {
-        tracing::info!(?addr, %user_agent,  "Websocket connected");
-
-        let (_, mut receiver) = socket.split();
-
-        while let Some(Ok(msg)) = receiver.next().await {
-            tracing::info!(?msg, ?addr, "Websocket message received");
-        }
-
-        tracing::info!(?addr, "Websocket closed");
+    ws.on_upgrade(move |socket| {
+        state
+            .connection_manager
+            .clone()
+            .accept_connection(socket, user_agent, addr)
     })
 }
 
