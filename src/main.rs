@@ -1,6 +1,8 @@
+use std::{net::SocketAddr, path::PathBuf};
+
 use anyhow::Context;
 use axum::{
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State, WebSocketUpgrade},
     http::Method,
     middleware::{self, Next},
     response::IntoResponse,
@@ -8,10 +10,11 @@ use axum::{
     Router,
 };
 use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
+    headers::{authorization::Bearer, Authorization, UserAgent},
     TypedHeader,
 };
 use clap::Parser;
+use futures::StreamExt;
 use job_hub::{
     cli_args::CliArgs,
     openapi::ApiDoc,
@@ -21,6 +24,7 @@ use job_hub::{
 use tower::ServiceBuilder;
 use tower_http::{
     cors::CorsLayer,
+    services::ServeDir,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
 use utoipa::OpenApi;
@@ -62,9 +66,13 @@ async fn main() -> anyhow::Result<()> {
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(state, validate_bearer_token));
 
+    let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+
     let app = Router::new()
+        .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .nest("/api", api)
         .route("/health", get(|| async { "ok" }))
+        .route("/ws", get(ws_handler))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(Redoc::with_url("/redoc", ApiDoc::openapi()))
         .merge(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
@@ -91,10 +99,13 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("Bind failed")?;
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("Server failed")?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .context("Server failed")?;
 
     Ok(())
 }
@@ -115,6 +126,30 @@ async fn validate_bearer_token(
     let res = next.run(request).await;
 
     Ok(res)
+}
+
+async fn ws_handler(
+    ws: WebSocketUpgrade,
+    user_agent: Option<TypedHeader<UserAgent>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> impl IntoResponse {
+    let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
+        user_agent.to_string()
+    } else {
+        String::from("Unknown browser")
+    };
+
+    ws.on_upgrade(move |socket| async move {
+        tracing::info!(?addr, %user_agent,  "Websocket connected");
+
+        let (_, mut receiver) = socket.split();
+
+        while let Some(Ok(msg)) = receiver.next().await {
+            tracing::info!(?msg, ?addr, "Websocket message received");
+        }
+
+        tracing::info!(?addr, "Websocket closed");
+    })
 }
 
 async fn shutdown_signal() {

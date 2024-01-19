@@ -11,7 +11,7 @@ use tokio::{
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
-#[serde(tag = "status", content = "data")]
+#[serde(tag = "status", content = "content")]
 pub enum Status {
     Created,
     Failed { operation: FailOperation },
@@ -23,7 +23,6 @@ pub enum Status {
 
 /// Where did the task fail
 #[derive(Debug, Clone, Serialize, ToSchema)]
-#[serde(tag = "operation", content = "data")]
 pub enum FailOperation {
     /// Failed to spawn OS process
     OnSpawn,
@@ -40,7 +39,7 @@ pub enum FailOperation {
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
-#[serde(tag = "status", content = "data")]
+#[serde(tag = "exit_status", content = "content")]
 pub enum ExitedStatus {
     /// Exited with success
     Success,
@@ -93,7 +92,7 @@ impl Handle {
     ///
     /// This will not wait for the task to finish. Waiting for the task to finish may cause a bad response times for the api.
     /// Running tasks will be locked until the task is finished, which may take a long time.
-    /// Locking the tasks will prevent other tasks from running or even canceling.
+    /// Locking the tasks will prevent other tasks from running.
     #[tracing::instrument(name = "cancel_siganl", skip(self), fields(id=self.id()))]
     pub async fn send_cancel_signal(&self) {
         match self.tx.send(()).await {
@@ -186,14 +185,14 @@ impl Task {
 
         let child = if cfg!(target_os = "windows") {
             Command::new("cmd")
-                .args(["/C", "timeout", "/T", "10", "/NOBREAK"])
+                .args(["/C", "timeout", "/T", "100", "/NOBREAK"])
                 .stdout(stdout)
                 .stderr(stderr)
                 .stdin(std::process::Stdio::null())
                 .spawn()
         } else {
             Command::new("sleep")
-                .args(["10"])
+                .args(["1000"])
                 .stdout(stdout)
                 .stderr(stderr)
                 .stdin(std::process::Stdio::null())
@@ -203,7 +202,7 @@ impl Task {
         let mut child = match child {
             Ok(child) => child,
             Err(err) => {
-                tracing::error!(?err, "Failed to spawn child");
+                tracing::error!(?err, "Failed to spawn OS process");
 
                 self.set_status_and_log(Status::Failed {
                     operation: FailOperation::OnSpawn,
