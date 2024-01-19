@@ -15,6 +15,8 @@ use utoipa::{
     ),
     components(schemas(
         crate::server::task::Status,
+        crate::server::task::FailOperation,
+        crate::server::task::ExitedStatus,
         crate::routes::run::RunReponse,
         crate::routes::cancel::CancelReponse,
         crate::routes::status::StatusReponse,
