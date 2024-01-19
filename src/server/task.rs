@@ -183,8 +183,8 @@ impl Task {
                 .stderr(stderr)
                 .spawn()
         } else {
-            Command::new("sleep")
-                .args(["1000"])
+            Command::new("bash")
+                .args(["-c", "loop_numbers.sh"])
                 .stdout(stdout)
                 .stderr(stderr)
                 .spawn()

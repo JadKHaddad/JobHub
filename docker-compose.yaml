@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  job_hub:
+    container_name: job_hub
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - SOCKET_ADDRESS=0.0.0.0:2999
+      - API_TOKEN=""
+    ports:
+      - 127.0.0.1:2999:2999
+    restart: unless-stopped

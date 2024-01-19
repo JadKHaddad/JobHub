@@ -17,7 +17,7 @@ use utoipa::{
         crate::routes::status::StatusReponse,
     )),
     servers(
-        (url = "http://localhost:3000"), 
+        (url = "https://gpt.jadkhaddad.com"), 
     ),
     modifiers(&SecurityAddon),
 )]
