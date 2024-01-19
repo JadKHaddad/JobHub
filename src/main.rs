@@ -62,7 +62,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/run", post(routes::run::run))
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
-        .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_bearer_token,

@@ -97,7 +97,7 @@ impl Handle {
     pub async fn send_cancel_signal(&self) {
         match self.tx.send(()).await {
             Ok(_) => {
-                tracing::info!("Sent cancel signal. Waiting for termination");
+                tracing::info!("Sent cancel signal");
             }
             Err(_) => tracing::warn!("Failed to send cancel signal. Taks was probably dropped"),
         }
@@ -184,8 +184,8 @@ impl Task {
         };
 
         let child = if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .args(["/C", "timeout", "/T", "100", "/NOBREAK"])
+            Command::new("powershell")
+                .args(["-File", "loop_numbers.ps1"])
                 .stdout(stdout)
                 .stderr(stderr)
                 .spawn()
@@ -243,29 +243,51 @@ impl Task {
             _ = tokio::time::sleep(timeout) => {
                 tracing::debug!("Timeout");
 
-                if let Err(err) = child.kill().await {
-                    tracing::error!(?err, "Failed to kill OS process");
-                    Status::Failed{
-                        operation: FailOperation::AfterTimeoutOnKill
+                match child.kill().await {
+                    Ok(_) => {
+                        tracing::debug!("Killed OS process");
+
+                        match child.wait().await {
+                            Ok(exit_status) => {
+                                tracing::debug!(?exit_status, "OS process exited with status");
+                                Status::Timeout
+                            },
+                            Err(err) => {
+                                tracing::error!(?err, "Failed to wait for OS process");
+                                Status::Failed{ operation: FailOperation::AfterTimeoutOnWait }
+                            }
+                        }
+                    },
+
+                    Err(err) => {
+                        tracing::error!(?err, "Failed to kill OS process");
+                        Status::Failed{ operation: FailOperation::AfterTimeoutOnKill }
                     }
-                } else if let Err(err) = child.wait().await {
-                    tracing::error!(?err, "Failed to wait for OS process");
-                    Status::Failed{
-                        operation: FailOperation::AfterTimeoutOnWait
-                    }
-                } else {
-                    Status::Timeout
                 }
+
+
             },
             _ = self.wait_for_cancel_signal() => {
-                if let Err(err) = child.kill().await {
-                    tracing::error!(?err, "Failed to kill OS process");
-                    Status::Failed { operation: FailOperation::AfterCancelOnKill }
-                } else if let Err(err) = child.wait().await {
-                    tracing::error!(?err, "Failed to wait for OS process");
-                    Status::Failed{ operation: FailOperation::AfterCancelOnWait }
-                } else {
-                    Status::Canceled
+
+                match child.kill().await {
+                    Ok(_) => {
+                        tracing::debug!("Killed OS process");
+
+                        match child.wait().await {
+                            Ok(_) => {
+                                Status::Canceled
+                            },
+                            Err(err) => {
+                                tracing::error!(?err, "Failed to wait for OS process");
+                                Status::Failed{ operation: FailOperation::AfterCancelOnWait }
+                            }
+                        }
+                    },
+
+                    Err(err) => {
+                        tracing::error!(?err, "Failed to kill OS process");
+                        Status::Failed{ operation: FailOperation::AfterCancelOnKill }
+                    }
                 }
             },
             res = child.wait() => {

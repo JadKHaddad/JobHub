@@ -67,7 +67,7 @@ impl ApiStateInner {
         let id = self.increment_current_id().to_string();
         let task_id = id.clone();
 
-        let timeout = std::time::Duration::from_secs(20);
+        let timeout = std::time::Duration::from_secs(600);
 
         let (task, task_handle) = Task::new(id.clone());
 
