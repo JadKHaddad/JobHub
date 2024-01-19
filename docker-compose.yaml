@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - SOCKET_ADDRESS=0.0.0.0:2999
-      - API_TOKEN=s
+      - API_TOKEN=
     ports:
       - 127.0.0.1:2999:2999
     restart: unless-stopped
