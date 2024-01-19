@@ -184,7 +184,7 @@ impl Task {
                 .spawn()
         } else {
             Command::new("bash")
-                .args(["-c", "loop_numbers.sh"])
+                .args(["-c", "while true; do echo 1; sleep 1; done"])
                 .stdout(stdout)
                 .stderr(stderr)
                 .spawn()
