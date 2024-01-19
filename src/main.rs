@@ -142,12 +142,7 @@ async fn ws_handler(
         String::from("Unknown browser")
     };
 
-    ws.on_upgrade(move |socket| {
-        state
-            .connection_manager
-            .clone()
-            .accept_connection(socket, user_agent, addr)
-    })
+    ws.on_upgrade(move |socket| state.clone().accept_connection(socket, user_agent, addr))
 }
 
 async fn shutdown_signal() {

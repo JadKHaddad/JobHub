@@ -3,9 +3,12 @@ use crate::server::ws::{IoType, ServerMessage, TaskIoChunk};
 use super::{
     connection_manager::ConnectionManager,
     task::{Handle, Status, Task},
+    ws::ClientMessage,
 };
+use axum::extract::ws::WebSocket;
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     ops::Deref,
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -31,11 +34,27 @@ impl ApiState {
     pub fn api_token_valid(&self, api_token: &str) -> bool {
         api_token == self.api_token
     }
+
+    pub async fn accept_connection(self, socket: WebSocket, user_agent: String, addr: SocketAddr) {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<ClientMessage>(100);
+
+        self.inner
+            .connection_manager
+            .accept_connection(tx, socket, user_agent, addr)
+            .await;
+
+        tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                // Deal with the message
+                tracing::info!(?msg, "Received message from client");
+            }
+        });
+    }
 }
 
 pub struct ApiStateInner {
     api_token: String,
-    pub connection_manager: ConnectionManager,
+    connection_manager: ConnectionManager,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
     /// The value is the [`Handle`] of the task ._.
