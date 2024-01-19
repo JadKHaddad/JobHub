@@ -27,6 +27,7 @@ impl ConnectionManager {
     async fn process_incoming(
         addr: SocketAddr,
         client_messages_sender: mpsc::Sender<ClientMessage>,
+        close_sender: mpsc::Sender<()>,
         mut ws_receiver: SplitStream<WebSocket>,
     ) {
         while let Some(Ok(msg)) = ws_receiver.next().await {
@@ -69,28 +70,46 @@ impl ConnectionManager {
             }
         }
 
+        match close_sender.send(()).await {
+            Ok(_) => {}
+            Err(err) => {
+                tracing::error!(
+                    ?err,
+                    "Failed to send close signal. Sender was probably dropped"
+                );
+            }
+        }
+
         tracing::debug!("Receiver closed");
     }
 
-    // FIXME: Closes only after close when we attempt to send a message and it fails
-    #[tracing::instrument(name = "websocket_outgoing", skip_all)]
+    #[tracing::instrument(name = "websocket_outgoing", skip_all, fields(addr = %addr))]
     async fn process_outgoing(
+        addr: SocketAddr,
         mut broadcast_receiver: broadcast::Receiver<ServerMessage>,
+        mut close_receiver: mpsc::Receiver<()>,
         mut ws_sender: SplitSink<WebSocket, Message>,
     ) {
-        while let Ok(msg) = broadcast_receiver.recv().await {
-            let msg = serde_json::to_string(&msg).unwrap_or_default();
-            let msg = Message::Text(msg);
-
-            tracing::trace!(?msg, "Sending message");
-
-            match ws_sender.send(msg).await {
-                Ok(_) => {}
-                Err(err) => {
-                    tracing::error!(?err, "Failed to send message");
-                    break;
-                }
+        tokio::select! {
+            _ = close_receiver.recv() => {
+                tracing::debug!("Received close signal");
             }
+            _ = async move {
+                    while let Ok(msg) = broadcast_receiver.recv().await {
+                        let msg = serde_json::to_string(&msg).unwrap_or_default();
+                        let msg = Message::Text(msg);
+
+                        tracing::trace!(?msg, "Sending message");
+
+                        match ws_sender.send(msg).await {
+                            Ok(_) => {}
+                            Err(err) => {
+                                tracing::error!(?err, "Failed to send message");
+                                break;
+                            }
+                        }
+                    }
+            } => {}
         }
 
         tracing::debug!("Sender closed");
@@ -107,30 +126,31 @@ impl ConnectionManager {
         tracing::info!(%user_agent, "Connected");
 
         let (ws_sender, ws_receiver) = socket.split();
+        let (close_sender, close_receiver) = mpsc::channel(1);
         let broadcast_receiver = self.broadcast_sender.subscribe();
 
         let mut recv_task = tokio::spawn(ConnectionManager::process_incoming(
             addr,
             client_messages_sender,
+            close_sender,
             ws_receiver,
         ));
 
         let mut send_task = tokio::spawn(ConnectionManager::process_outgoing(
+            addr,
             broadcast_receiver,
+            close_receiver,
             ws_sender,
         ));
 
         tokio::select! {
             _ = (&mut send_task)  => {
-                //recv_task.abort();
+                let _ = recv_task.await;
             },
             _ = (&mut recv_task) => {
-                //send_task.abort();
+                let _ = send_task.await;
             }
         }
-
-        // recv_task.await.unwrap_or_default();
-        // send_task.await.unwrap_or_default();
 
         tracing::debug!("Context destroyed");
     }
