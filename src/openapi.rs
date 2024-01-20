@@ -1,9 +1,9 @@
 use utoipa::{
     openapi::{
         security::{ApiKey, ApiKeyValue, SecurityScheme},
-        OpenApi as OpenApiDoc, OpenApiBuilder, Server,
+        OpenApi as OpenApiDoc, OpenApiBuilder, SecurityRequirement, Server,
     },
-    Modify, OpenApi,
+    OpenApi,
 };
 
 #[derive(OpenApi)]
@@ -20,36 +20,50 @@ use utoipa::{
         crate::routes::run::RunReponse,
         crate::routes::cancel::CancelReponse,
         crate::routes::status::StatusReponse,
-    )),
-    modifiers(&SecurityAddon),
+    ))
 )]
 struct ApiDoc;
 
-struct SecurityAddon;
+pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
+    let openapi: OpenApiDoc = ApiDoc::openapi();
 
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = openapi.components.as_mut() {
-            components.add_security_scheme(
-                "api_key",
-                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("api_key"))),
-            )
-        }
-    }
-}
+    // All paths require authentication with api_key
+    let mut paths = openapi.paths;
+    paths.paths = paths
+        .paths
+        .into_iter()
+        .map(|(path, mut path_item)| {
+            path_item.operations = path_item
+                .operations
+                .into_iter()
+                .map(|(method, mut operation)| {
+                    operation.security = Some(vec![SecurityRequirement::new(
+                        "api_key",
+                        ["edit:items", "read:items"],
+                    )]);
+                    (method, operation)
+                })
+                .collect();
 
-pub fn build_openapi(public_domain_urls: Vec<String>) -> OpenApiDoc {
-    let openapi = ApiDoc::openapi();
+            (path, path_item)
+        })
+        .collect();
+
+    // Add api_key security scheme, which will be referenced by all paths
+    let components = openapi.components.map(|mut components| {
+        components.add_security_scheme(
+            "api_key",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("api_key"))),
+        );
+
+        components
+    });
 
     OpenApiBuilder::new()
-        .paths(openapi.paths)
-        .components(openapi.components)
-        .security(openapi.security)
+        .paths(paths)
+        .components(components)
         .servers(Some(
-            public_domain_urls
-                .into_iter()
-                .map(Server::new)
-                .collect::<Vec<_>>(),
+            server_urls.into_iter().map(Server::new).collect::<Vec<_>>(),
         ))
         .build()
 }

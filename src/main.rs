@@ -65,8 +65,8 @@ async fn main() -> anyhow::Result<()> {
 
     let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
 
-    let public_domains = cli_args.public_domain_urls;
-    let openapi = build_openapi(public_domains);
+    let server_urls = cli_args.server_urls;
+    let openapi = build_openapi(server_urls);
 
     let app = Router::new()
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))

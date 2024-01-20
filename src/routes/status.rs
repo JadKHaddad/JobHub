@@ -31,9 +31,6 @@ impl IntoResponse for StatusReponse {
         (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Running})),
         (status = 400, description = "Task not found"),
     ),
-    security(
-        ("api_key" = [])
-    )
 )]
 pub async fn status(
     State(state): State<ApiState>,

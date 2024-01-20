@@ -9,8 +9,8 @@ pub struct CliArgs {
     pub socket_address: SocketAddr,
 
     /// The public domains to use for the API
-    #[clap(long, env = "PUBLIC_DOMAIN_URLS", value_delimiter = ',')]
-    pub public_domain_urls: Vec<String>,
+    #[clap(long, env = "SERVER_URLS", value_delimiter = ',')]
+    pub server_urls: Vec<String>,
 
     /// The API token to use for authentication
     #[clap(long, env = "API_TOKEN")]

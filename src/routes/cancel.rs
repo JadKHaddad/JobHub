@@ -32,9 +32,6 @@ impl IntoResponse for CancelReponse {
         (status = 202, description = "Task was scheduled for cancellation", body = CancelReponse, example = json!(CancelReponse{id: String::from("some-id")})),
         (status = 400, description = "Task not found"),
     ),
-    security(
-        ("api_key" = [])
-    )
 )]
 pub async fn cancel(
     State(state): State<ApiState>,
