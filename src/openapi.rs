@@ -1,7 +1,7 @@
 use utoipa::{
     openapi::{
         security::{ApiKey, ApiKeyValue, SecurityScheme},
-        OpenApi as OpenApiDoc, OpenApiBuilder, Server,
+        OpenApi as OpenApiDoc, OpenApiBuilder, SecurityRequirement, Server,
     },
     OpenApi,
 };
@@ -12,7 +12,6 @@ use utoipa::{
         crate::routes::run::run,
         crate::routes::cancel::cancel,
         crate::routes::status::status,
-        crate::routes::chat_id::request_chat_id,
     ),
     components(schemas(
         crate::server::task::Status,
@@ -28,15 +27,11 @@ struct ApiDoc;
 pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
     let openapi: OpenApiDoc = ApiDoc::openapi();
 
-    // Add api_key security scheme, which will be referenced by all paths
+    // All paths require authentication with api_key
     let components = openapi.components.map(|mut components| {
         components.add_security_scheme(
             "api_key",
             SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("api_key"))),
-        );
-        components.add_security_scheme(
-            "chat_id_token",
-            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("chat_id_token"))),
         );
 
         components
@@ -48,5 +43,9 @@ pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
         .servers(Some(
             server_urls.into_iter().map(Server::new).collect::<Vec<_>>(),
         ))
+        .security(Some(vec![SecurityRequirement::new(
+            "api_key",
+            ["edit:items", "read:items"],
+        )]))
         .build()
 }
