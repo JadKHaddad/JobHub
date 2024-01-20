@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
 
     let api = Router::new()
         // TODO: Create an extractor for this. From headers 'chat_id.
-        .route("/request_chat_id", get(|| async { "chat_id" }))
+        .route("/request_chat_id", get(routes::chat_id::request_chat_id))
         .route("/run", post(routes::run::run))
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
