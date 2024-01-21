@@ -17,13 +17,8 @@ impl From<ApiError> for ApiErrorResponse {
     fn from(value: ApiError) -> Self {
         let (status_code, msg) = match &value {
             ApiError::ChatIdMissing => (StatusCode::BAD_REQUEST, "Chat id missing"),
-            ApiError::ChatIdInvalid => (
-                StatusCode::FORBIDDEN,
-                "Chat id invalid. You are trying to access resources that are not yours",
-            ),
-            ApiError::ApiKeyMissingOrInvalid => {
-                (StatusCode::UNAUTHORIZED, "Unauthorized. See server logs")
-            }
+            ApiError::ApiKeyMissing => (StatusCode::BAD_REQUEST, "Api key missing"),
+            ApiError::ApiKeyInvalid => (StatusCode::UNAUTHORIZED, "Api key invalid"),
             ApiError::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal server error. See server logs",
@@ -44,12 +39,17 @@ impl IntoResponse for ApiErrorResponse {
     }
 }
 
+/// Invalid chat id is not exposed by the api.
+/// Every task has a chat id associated with it.
+/// If the client tries to access a task with an invalid chat id,
+/// the server will return a 404, preventing the client from guessing valid task ids.
+/// In other words, 404 means task not found for this chat id.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", content = "error")]
 pub enum ApiError {
     ChatIdMissing,
-    ChatIdInvalid,
-    ApiKeyMissingOrInvalid,
+    ApiKeyMissing,
+    ApiKeyInvalid,
     InternalServerError,
 }
 

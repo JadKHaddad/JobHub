@@ -113,8 +113,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: Create 2 Extractors for api_key and chat_id
-// Both will reject with our custom ApiError
+// TODO: Create an Extractor for chat_id that rejects with our ApiError
 async fn validate_bearer_token(
     State(state): State<ApiState>,
     headers: HeaderMap,
@@ -125,17 +124,17 @@ async fn validate_bearer_token(
         .get("api_key")
         .ok_or_else(|| {
             tracing::warn!("api_key header not present");
-            ApiError::ApiKeyMissingOrInvalid
+            ApiError::ApiKeyMissing
         })?
         .to_str()
         .map_err(|_| {
             tracing::warn!("Failed to convert api_key header into str");
-            ApiError::ApiKeyMissingOrInvalid
+            ApiError::ApiKeyMissing
         })?;
 
     if !state.api_token_valid(api_key) {
         tracing::warn!(%api_key, "Invalid api_key");
-        return Err(ApiError::ApiKeyMissingOrInvalid);
+        return Err(ApiError::ApiKeyInvalid);
     }
 
     let res = next.run(request).await;

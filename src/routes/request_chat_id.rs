@@ -26,6 +26,8 @@ impl IntoResponse for RequestChatIdReponse {
     tag = "task",
     responses(
         (status = 200, description = "Generated chat id for this session", body = RequestChatIdReponse, example = json!(RequestChatIdReponse{id: String::from("some-id")})),
+        (status = 400, description = "Api key missing"),
+        (status = 401, description = "Api key invalid"),
     ),
     security(
         ("api_key" = []),
