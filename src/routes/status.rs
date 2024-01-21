@@ -29,8 +29,14 @@ impl IntoResponse for StatusReponse {
     tag = "task",
     responses(
         (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Running})),
-        (status = 400, description = "Task not found"),
-    )
+        (status = 404, description = "Task not found"),
+        (status = 403, description = "Chat id invalid. You are trying to access resources that are not yours"),
+        (status = 400, description = "Chat id missing"),
+    ),
+    security(
+        ("api_key" = []),
+        ("chat_id" = [])
+    ),
 )]
 pub async fn status(
     State(state): State<ApiState>,

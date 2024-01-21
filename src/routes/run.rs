@@ -27,7 +27,13 @@ impl IntoResponse for RunReponse {
     tag = "task",
     responses(
         (status = 201, description = "Task was scheduled for running", body = RunReponse, example = json!(RunReponse{id: String::from("some-id")})),
-    )
+        (status = 403, description = "Chat id invalid. You are trying to access resources that are not yours"),
+        (status = 400, description = "Chat id missing"),
+    ),
+    security(
+        ("api_key" = []),
+        ("chat_id" = [])
+    ),
 )]
 pub async fn run(State(state): State<ApiState>) -> RunReponse {
     let id = state.run_task().await;

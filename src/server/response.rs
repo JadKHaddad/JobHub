@@ -16,7 +16,14 @@ struct ApiErrorResponse {
 impl From<ApiError> for ApiErrorResponse {
     fn from(value: ApiError) -> Self {
         let (status_code, msg) = match &value {
-            ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized. See server logs"),
+            ApiError::ChatIdMissing => (StatusCode::BAD_REQUEST, "Chat id missing"),
+            ApiError::ChatIdInvalid => (
+                StatusCode::FORBIDDEN,
+                "Chat id invalid. You are trying to access resources that are not yours",
+            ),
+            ApiError::ApiKeyMissingOrInvalid => {
+                (StatusCode::UNAUTHORIZED, "Unauthorized. See server logs")
+            }
             ApiError::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal server error. See server logs",
@@ -40,7 +47,9 @@ impl IntoResponse for ApiErrorResponse {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", content = "error")]
 pub enum ApiError {
-    Unauthorized,
+    ChatIdMissing,
+    ChatIdInvalid,
+    ApiKeyMissingOrInvalid,
     InternalServerError,
 }
 

@@ -53,6 +53,10 @@ async fn main() -> anyhow::Result<()> {
     let state = ApiState::new(cli_args.api_token);
 
     let api = Router::new()
+        .route(
+            "/request_chat_id",
+            get(routes::request_chat_id::request_chat_id),
+        )
         .route("/run", post(routes::run::run))
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
@@ -109,6 +113,8 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+// TODO: Create 2 Extractors for api_key and chat_id
+// Both will reject with our custom ApiError
 async fn validate_bearer_token(
     State(state): State<ApiState>,
     headers: HeaderMap,
@@ -119,17 +125,17 @@ async fn validate_bearer_token(
         .get("api_key")
         .ok_or_else(|| {
             tracing::warn!("api_key header not present");
-            ApiError::Unauthorized
+            ApiError::ApiKeyMissingOrInvalid
         })?
         .to_str()
         .map_err(|_| {
             tracing::warn!("Failed to convert api_key header into str");
-            ApiError::Unauthorized
+            ApiError::ApiKeyMissingOrInvalid
         })?;
 
     if !state.api_token_valid(api_key) {
         tracing::warn!(%api_key, "Invalid api_key");
-        return Err(ApiError::Unauthorized);
+        return Err(ApiError::ApiKeyMissingOrInvalid);
     }
 
     let res = next.run(request).await;
