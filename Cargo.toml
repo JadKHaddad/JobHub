@@ -24,3 +24,4 @@ tower-http = { version = "0.5.1", features = ["trace", "cors", "fs"] }
 clap = { version = "4.4.16", features = ["derive", "env"] }
 dotenv = "0.15.0"
 futures = "0.3"
+uuid = { version = "1.7.0", features = ["v4"] }

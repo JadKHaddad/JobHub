@@ -52,13 +52,18 @@ impl ApiState {
     }
 }
 
+/// Collecting relevant data for a task.
+struct TaskData {
+    chat_id: String,
+    handle: Handle,
+}
+
 pub struct ApiStateInner {
     api_token: String,
     connection_manager: Arc<ConnectionManager>,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
-    /// The value is the [`Handle`] of the task ._.
-    task_handles: Arc<RwLock<HashMap<String, Handle>>>,
+    tasks: Arc<RwLock<HashMap<String, TaskData>>>,
     /// I'm not wrapping [`ApiStateInner`] in a lock.
     /// So it's a good old [`AtomicU32`].
     current_id: AtomicU32,
@@ -69,12 +74,16 @@ impl ApiStateInner {
         Self {
             api_token,
             connection_manager: Arc::new(ConnectionManager::new()),
-            task_handles: Arc::new(RwLock::new(HashMap::new())),
+            tasks: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
         }
     }
 
-    fn increment_current_id(&self) -> u32 {
+    pub fn generate_random_chat_id(&self) -> String {
+        uuid::Uuid::new_v4().to_string()
+    }
+
+    fn increment_current_task_id(&self) -> u32 {
         let id = self.current_id.load(Ordering::Relaxed);
 
         self.current_id.store(id + 1, Ordering::Relaxed);
@@ -82,8 +91,8 @@ impl ApiStateInner {
         id
     }
 
-    pub async fn run_task(&self) -> String {
-        let id = self.increment_current_id().to_string();
+    pub async fn run_task(&self, chat_id: String) -> String {
+        let id = self.increment_current_task_id().to_string();
         let task_id = id.clone();
 
         let timeout = std::time::Duration::from_secs(600);
@@ -99,16 +108,22 @@ impl ApiStateInner {
         // drop(task_handle);
         // }
 
-        let mut task_handles = self.task_handles.write().await;
-        task_handles.insert(id.clone(), task_handle);
+        let task_data = TaskData {
+            chat_id,
+            handle: task_handle,
+        };
+
+        let mut tasks = self.tasks.write().await;
+        tasks.insert(id.clone(), task_data);
 
         let connection_manager = self.connection_manager.clone();
+        let tasks = self.tasks.clone();
         tokio::spawn(async move {
             let (stdout_tx, mut stdout_rx) = tokio::io::duplex(100);
             let (stderr_tx, mut stderr_rx) = tokio::io::duplex(100);
 
             let stdout_task_id = task_id.clone();
-            let stderr_task_id = task_id;
+            let stderr_task_id = task_id.clone();
 
             let stdout_connection_manager = connection_manager.clone();
             let stderr_connection_manager = connection_manager;
@@ -160,60 +175,42 @@ impl ApiStateInner {
 
             task.run(timeout, Some(stdout_tx), Some(stderr_tx)).await;
 
-            // let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskOutputFrame>(100);
-            // let io_line_mapper = TaskOutputFrameMapper { tx, task_id };
+            // Keeping task in memory for 15 minutes after it's done.
+            // simulating an in-memory database.
 
-            // tokio::spawn(async move {
-            //     while let Some(task_output_frame) = rx.recv().await {
-            //         let task_output_frame =
-            //             String::from_utf8_lossy(&task_output_frame.output_frame);
-            //         tracing::info!(?task_output_frame);
-            //     }
-            // });
-
-            // let file = tokio::fs::File::create("out.txt").await.unwrap();
-
-            // let mut task_handles = task_handles.write().await;
-            // task_handles.remove(&id);
+            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
+            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
+            tracing::debug!(id=%task_id, "Removing task from memory");
+            let mut tasks = tasks.write().await;
+            tasks.remove(&task_id);
         });
 
         id
     }
 
     /// Send a cancel signal to the task with the given id and return immediately.
-    pub async fn cancel_task<'a>(&self, id: &'a str) -> Option<&'a str> {
-        // let mut task_handles = self.task_handles.write().await;
-
-        // match task_handles.remove(&id) {
-        //     Some(task_handle) => {
-        //         task_handle.kill().await;
-        //         let status = task_handle.status().await;
-        //         Some(status)
-        //     }
-        //     None => None,
-        // }
-
-        let task_handles = self.task_handles.read().await;
-        match task_handles.get(id) {
-            Some(task_handle) => {
-                task_handle.send_cancel_signal().await;
+    /// The Terminated task will be removed fom memory in a different tokio task which is spawned by [`ApiStateInner::run_task`].
+    pub async fn cancel_task<'a>(&self, id: &'a str, chat_id: &str) -> Option<&'a str> {
+        let tasks = self.tasks.read().await;
+        match tasks.get(id) {
+            Some(task_data) if task_data.chat_id == chat_id => {
+                task_data.handle.send_cancel_signal().await;
 
                 Some(id)
             }
-            None => None,
+            _ => None,
         }
     }
 
-    pub async fn task_status(&self, id: &str) -> Option<Status> {
-        let task_handles = self.task_handles.read().await;
-
-        match task_handles.get(id) {
-            Some(task_handle) => {
-                let status = task_handle.status().await;
+    pub async fn task_status(&self, id: &str, chat_id: &str) -> Option<Status> {
+        let tasks = self.tasks.read().await;
+        match tasks.get(id) {
+            Some(task_data) if task_data.chat_id == chat_id => {
+                let status = task_data.handle.status().await;
 
                 Some(status)
             }
-            None => None,
+            _ => None,
         }
     }
 }

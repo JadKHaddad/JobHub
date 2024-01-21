@@ -83,7 +83,11 @@ async fn main() -> anyhow::Result<()> {
             ServiceBuilder::new()
                 .layer(
                     TraceLayer::new_for_http()
-                        .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
+                        .make_span_with(
+                            DefaultMakeSpan::new()
+                                .level(tracing::Level::INFO)
+                                .include_headers(true),
+                        )
                         .on_request(DefaultOnRequest::new().level(tracing::Level::INFO))
                         .on_response(DefaultOnResponse::new().level(tracing::Level::INFO)),
                 )
@@ -113,7 +117,6 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO: Create an Extractor for chat_id that rejects with our ApiError
 async fn validate_bearer_token(
     State(state): State<ApiState>,
     headers: HeaderMap,

@@ -1,4 +1,4 @@
-use crate::server::state::ApiState;
+use crate::server::{extractors::chat_id::ChatId, state::ApiState};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -36,8 +36,8 @@ impl IntoResponse for RunReponse {
         ("chat_id" = [])
     ),
 )]
-pub async fn run(State(state): State<ApiState>) -> RunReponse {
-    let id = state.run_task().await;
+pub async fn run(State(state): State<ApiState>, ChatId(chat_id): ChatId) -> RunReponse {
+    let id = state.run_task(chat_id).await;
 
     RunReponse { id }
 }

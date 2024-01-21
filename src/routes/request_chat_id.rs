@@ -33,8 +33,8 @@ impl IntoResponse for RequestChatIdReponse {
         ("api_key" = []),
     ),
 )]
-pub async fn request_chat_id(State(_state): State<ApiState>) -> RequestChatIdReponse {
-    let id = String::from("some-id");
+pub async fn request_chat_id(State(state): State<ApiState>) -> RequestChatIdReponse {
+    let id = state.generate_random_chat_id();
 
     RequestChatIdReponse { id }
 }

@@ -1,4 +1,6 @@
-use crate::server::{response::ApiError, state::ApiState, task::Status};
+use crate::server::{
+    extractors::chat_id::ChatId, response::ApiError, state::ApiState, task::Status,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -42,8 +44,12 @@ impl IntoResponse for StatusReponse {
 pub async fn status(
     State(state): State<ApiState>,
     Path(id): Path<String>,
+    ChatId(chat_id): ChatId,
 ) -> Result<StatusReponse, ApiError> {
-    let status = state.task_status(&id).await.ok_or(ApiError::NotFound)?;
+    let status = state
+        .task_status(&id, &chat_id)
+        .await
+        .ok_or(ApiError::NotFound)?;
 
     Ok(StatusReponse { status })
 }
