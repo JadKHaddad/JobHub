@@ -22,6 +22,10 @@ impl IntoResponse for StatusReponse {
     }
 }
 
+/// Get the status of a task
+///
+/// This endpoint will return the status of a given task. The task id can be obtained by scheduling a task using the `/api/run` endpoint.
+/// A Chat id is required to schedule a task. The chat id can be generated using the `/api/request_chat_id` endpoint.
 #[utoipa::path(
     get,
     path = "/api/status/{id}", 

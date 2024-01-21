@@ -21,6 +21,11 @@ impl IntoResponse for CancelReponse {
     }
 }
 
+/// Schedule a task for cancellation
+///
+/// This endpoint will schedule a task for cancellation. The task will be cancelled asynchronously.
+/// A Chat id is required to schedule a task. The chat id can be generated using the `/api/request_chat_id` endpoint.
+/// The task id can be obtained by scheduling a task using the `/api/run` endpoint.
 #[utoipa::path(
     put,
     path = "/api/cancel/{id}", 
