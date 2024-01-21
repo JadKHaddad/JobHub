@@ -1,4 +1,4 @@
-use crate::server::state::ApiState;
+use crate::server::{response::ApiError, state::ApiState};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -43,8 +43,8 @@ impl IntoResponse for CancelReponse {
 pub async fn cancel(
     State(state): State<ApiState>,
     Path(id): Path<String>,
-) -> Result<CancelReponse, StatusCode> {
-    let _ = state.cancel_task(&id).await.ok_or(StatusCode::NOT_FOUND)?;
+) -> Result<CancelReponse, ApiError> {
+    let _ = state.cancel_task(&id).await.ok_or(ApiError::NotFound)?;
 
     Ok(CancelReponse { id })
 }

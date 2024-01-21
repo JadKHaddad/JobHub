@@ -19,6 +19,7 @@ impl From<ApiError> for ApiErrorResponse {
             ApiError::ChatIdMissing => (StatusCode::BAD_REQUEST, "Chat id missing"),
             ApiError::ApiKeyMissing => (StatusCode::BAD_REQUEST, "Api key missing"),
             ApiError::ApiKeyInvalid => (StatusCode::UNAUTHORIZED, "Api key invalid"),
+            ApiError::NotFound => (StatusCode::NOT_FOUND, "Not found"),
             ApiError::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal server error. See server logs",
@@ -50,6 +51,7 @@ pub enum ApiError {
     ChatIdMissing,
     ApiKeyMissing,
     ApiKeyInvalid,
+    NotFound,
     InternalServerError,
 }
 
