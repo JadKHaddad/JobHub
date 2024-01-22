@@ -24,10 +24,12 @@ impl IntoResponse for RunReponse {
 /// Schedule a task for running
 ///
 /// This endpoint will schedule a task for running. The task will be executed asynchronously.
-/// A Chat id is required to schedule a task. The chat id can be generated using the `/api/request_chat_id` endpoint.
 #[utoipa::path(
     post,
     path = "/api/run", 
+    params(
+        ("chat_id" = String, Header, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
+    ),
     tag = "task",
     responses(
         (status = 201, description = "Task was scheduled for running", body = RunReponse, example = json!(RunReponse{id: String::from("some-id")})),
@@ -37,7 +39,6 @@ impl IntoResponse for RunReponse {
     ),
     security(
         ("api_key" = []),
-        ("chat_id" = [])
     ),
 )]
 pub async fn run(State(state): State<ApiState>, ChatId(chat_id): ChatId) -> RunReponse {
