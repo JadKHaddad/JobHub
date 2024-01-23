@@ -26,7 +26,6 @@ use utoipa::{
 )]
 struct ApiDoc;
 
-// TODO: Squash all Error responses in this one function call to avoid duplication
 pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
     let openapi: OpenApiDoc = ApiDoc::openapi();
 
@@ -35,11 +34,6 @@ pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
             "api_key",
             SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("api_key"))),
         );
-        components.add_security_scheme(
-            "chat_id",
-            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("chat_id"))),
-        );
-
         components
     });
 
@@ -49,9 +43,5 @@ pub fn build_openapi(server_urls: Vec<String>) -> OpenApiDoc {
         .servers(Some(
             server_urls.into_iter().map(Server::new).collect::<Vec<_>>(),
         ))
-        // .security(Some(vec![SecurityRequirement::new(
-        //     "api_key",
-        //     ["edit:items", "read:items"],
-        // )]))
         .build()
 }
