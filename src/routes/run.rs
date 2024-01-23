@@ -28,7 +28,7 @@ impl IntoResponse for RunReponse {
     post,
     path = "/api/run", 
     params(
-        ("chat_id" = String, Header, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
+        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
     ),
     tag = "task",
     responses(

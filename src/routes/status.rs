@@ -28,7 +28,7 @@ impl IntoResponse for StatusReponse {
     path = "/api/status/{id}", 
     params(
         ("id" = String, Path, description = "Task id. generated using the `/api/run` endpoint"),
-        ("chat_id" = String, Header, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
+        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
     ),
     tag = "task",
     responses(
