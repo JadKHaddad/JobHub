@@ -1,12 +1,12 @@
 use crate::server::response::ApiError;
-use axum::{
-    extract::{FromRequestParts, Query},
-    http::request::Parts,
-};
+use axum::{extract::FromRequestParts, http::request::Parts};
 use serde::{Deserialize, Serialize};
+
+use super::query::Query;
 
 #[derive(Serialize, Deserialize)]
 struct ChatIdContainer {
+    /// Chat id. generated using the `/api/request_chat_id` endpoint
     chat_id: String,
 }
 
