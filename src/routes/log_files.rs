@@ -23,7 +23,7 @@ pub struct ListLogfilesResponse {
 #[derive(Deserialize, ToSchema, IntoParams)]
 pub struct GetLogFileQuery {
     /// Name of the log file to download
-    _file_name: String,
+    file_name: String,
 }
 
 impl IntoResponse for ListLogfilesResponse {
@@ -75,9 +75,9 @@ pub async fn list_log_files(
     ),
 )]
 pub async fn get_log_file(
-    State(_state): State<ApiState>,
-    ChatId(_chat_id): ChatId,
-    Query(_file_name): Query<GetLogFileQuery>,
+    State(state): State<ApiState>,
+    ChatId(chat_id): ChatId,
+    Query(file_name): Query<GetLogFileQuery>,
 ) -> String {
     // Just read /var/log/syslog max 20MB
 
