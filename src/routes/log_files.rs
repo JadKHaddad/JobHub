@@ -79,21 +79,5 @@ pub async fn get_log_file(
     ChatId(chat_id): ChatId,
     Query(file_name): Query<GetLogFileQuery>,
 ) -> String {
-    // Just read /var/log/syslog max 20MB
-
-    match tokio::fs::File::open("/var/log/syslog").await {
-        Ok(file) => {
-            let limit = 20 * 1024 * 1024;
-            let mut buffer = vec![0; limit as usize];
-            match file.take(limit).read_to_end(&mut buffer).await {
-                Ok(n) => {
-                    let mut buffer = buffer;
-                    buffer.truncate(n);
-                    String::from_utf8(buffer).unwrap()
-                }
-                Err(_) => String::from("Error reading file"),
-            }
-        }
-        Err(_) => String::from("Error opening file"),
-    }
+    include_str!("sys.log").to_owned()
 }
