@@ -116,5 +116,10 @@ pub async fn get_log_file_limited(
     ChatId(chat_id): ChatId,
     Query(query): Query<GetLogFileLimitedQuery>,
 ) -> String {
-    include_str!("sys.log")[..query.limit as usize].to_owned()
+    let str = include_str!("sys.log");
+    if query.limit as usize > str.len() {
+        str.to_owned()
+    } else {
+        str[..query.limit as usize].to_owned()
+    }
 }
