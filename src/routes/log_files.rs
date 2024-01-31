@@ -32,6 +32,7 @@ impl IntoResponse for ListLogfilesResponse {
     }
 }
 
+/// List available log files
 #[utoipa::path(
     get,
     path = "/api/list_log_files", 
@@ -57,6 +58,7 @@ pub async fn list_log_files(
     }
 }
 
+/// Download a log file
 #[utoipa::path(
     get,
     path = "/api/get_log_file", 
@@ -80,4 +82,39 @@ pub async fn get_log_file(
     Query(file_name): Query<GetLogFileQuery>,
 ) -> String {
     include_str!("sys.log").to_owned()
+}
+
+#[derive(Deserialize, ToSchema, IntoParams)]
+pub struct GetLogFileLimitedQuery {
+    /// Name of the log file to download
+    file_name: String,
+    /// Maximum number of bytes to download
+    limit: u64,
+}
+
+/// Download a log file with limited number of bytes
+#[utoipa::path(
+    get,
+    path = "/api/get_log_file_limited", 
+    params(
+        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint"),
+        ("file_name" = String, Query, description = "Name of the log file to download"),
+        ("limit" = u64, Query, description = "Maximum number of bytes to download")
+    ),
+    tag = "files",
+    responses(
+        (status = 200, description = "Log file", body = String),
+        (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
+        (status = 401, description = "Api key invalid"),
+    ),
+    security(
+        ("api_key" = []),
+    ),
+)]
+pub async fn get_log_file_limited(
+    State(state): State<ApiState>,
+    ChatId(chat_id): ChatId,
+    Query(query): Query<GetLogFileLimitedQuery>,
+) -> String {
+    include_str!("sys.log")[..query.limit as usize].to_owned()
 }

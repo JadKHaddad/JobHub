@@ -62,6 +62,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/status/:id", get(routes::status::status))
         .route("/list_log_files", get(routes::log_files::list_log_files))
         .route("/get_log_file", get(routes::log_files::get_log_file))
+        .route(
+            "/get_log_file_limited",
+            get(routes::log_files::get_log_file_limited),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_bearer_token,

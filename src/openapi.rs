@@ -19,6 +19,7 @@ use utoipa::{
         crate::routes::request_chat_id::request_chat_id,
         crate::routes::log_files::list_log_files,
         crate::routes::log_files::get_log_file,
+        crate::routes::log_files::get_log_file_limited,
     ),
     components(schemas(
         crate::server::task::Status,
