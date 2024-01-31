@@ -33,8 +33,7 @@ impl IntoResponse for CancelReponse {
     responses(
         (status = 202, description = "Task was scheduled for cancellation", body = CancelReponse, example = json!(CancelReponse{id: String::from("some-id")})),
         (status = 404, description = "Task not found for this chat id"),
-        (status = 400, description = "Chat id missing"),
-        (status = 400, description = "Api key missing"),
+        (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
     security(

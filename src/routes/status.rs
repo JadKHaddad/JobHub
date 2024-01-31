@@ -34,8 +34,7 @@ impl IntoResponse for StatusReponse {
     responses(
         (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Running})),
         (status = 404, description = "Task not found for this chat id"),
-        (status = 400, description = "Chat id missing"),
-        (status = 400, description = "Api key missing"),
+        (status = 400, description = "Chat id missing. Api key missing."),
         (status = 401, description = "Api key invalid"),
     ),
     security(

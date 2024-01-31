@@ -40,9 +40,8 @@ impl IntoResponse for ListLogfilesResponse {
         ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
     ),
     responses(
-        (status = 201, description = "Task was scheduled for running", body = RunReponse, example = json!(ListLogfilesResponse{files: vec![String::from("file_1.log"), String::from("file_2.log")]})),
-        (status = 400, description = "Chat id missing"),
-        (status = 400, description = "Api key missing"),
+        (status = 200, description = "List of names of available log files", body = ListLogfilesResponse, example = json!(ListLogfilesResponse{files: vec![String::from("file_1.log"), String::from("file_2.log")]})),
+        (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
     security(
@@ -53,7 +52,9 @@ pub async fn list_log_files(
     State(_state): State<ApiState>,
     ChatId(_chat_id): ChatId,
 ) -> ListLogfilesResponse {
-    todo!()
+    ListLogfilesResponse {
+        files: vec![String::from("file_1.log"), String::from("file_2.log")],
+    }
 }
 
 #[utoipa::path(
@@ -65,10 +66,9 @@ pub async fn list_log_files(
     ),
     tag = "files",
     responses(
-        (status = 400, description = "Chat id missing"),
-        (status = 400, description = "Api key missing"),
+        (status = 200, description = "Log file", body = String),
+        (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
         (status = 401, description = "Api key invalid"),
-        (status = 400, description = "Query invalid"),
     ),
     security(
         ("api_key" = []),

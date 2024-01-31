@@ -33,8 +33,7 @@ impl IntoResponse for RunReponse {
     tag = "task",
     responses(
         (status = 201, description = "Task was scheduled for running", body = RunReponse, example = json!(RunReponse{id: String::from("some-id")})),
-        (status = 400, description = "Chat id missing"),
-        (status = 400, description = "Api key missing"),
+        (status = 400, description = "Chat id missing, Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
     security(
