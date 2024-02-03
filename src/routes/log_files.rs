@@ -134,7 +134,7 @@ pub async fn get_log_file_text_limited(
     ),
     tag = "files",
     responses(
-        (status = 200, description = "Log file", body = String),
+        (status = 200, description = "Log file", body = Vec<u8>),
         (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
         (status = 401, description = "Api key invalid"),
     ),
@@ -161,7 +161,7 @@ pub async fn get_log_file_octet(
     ),
     tag = "files",
     responses(
-        (status = 200, description = "Log file", body = String),
+        (status = 200, description = "Log file", body = Vec<u8>),
         (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
         (status = 401, description = "Api key invalid"),
     ),
@@ -205,7 +205,7 @@ pub struct GetLogFileOffsetLimitedQuery {
     ),
     tag = "files",
     responses(
-        (status = 200, description = "Log file", body = String),
+        (status = 200, description = "Log file", body = Vec<u8>),
         (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
         (status = 401, description = "Api key invalid"),
     ),
@@ -242,7 +242,7 @@ pub async fn get_log_file_octet_offset_limited(
     ),
     tag = "files",
     responses(
-        (status = 200, description = "Log file", body = String),
+        (status = 200, description = "Log file", body = Vec<u8>),
         (status = 400, description = "Chat id missing. Api key missing. Query invalid"),
         (status = 401, description = "Api key invalid"),
     ),
