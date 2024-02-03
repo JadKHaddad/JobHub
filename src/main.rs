@@ -19,7 +19,9 @@ use job_hub::{
 };
 use tower::ServiceBuilder;
 use tower_http::{
+    compression::CompressionLayer,
     cors::CorsLayer,
+    decompression::RequestDecompressionLayer,
     services::ServeDir,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
@@ -61,10 +63,25 @@ async fn main() -> anyhow::Result<()> {
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .route("/list_log_files", get(routes::log_files::list_log_files))
-        .route("/get_log_file", get(routes::log_files::get_log_file))
         .route(
-            "/get_log_file_limited",
-            get(routes::log_files::get_log_file_limited),
+            "/get_log_file_text",
+            get(routes::log_files::get_log_file_text),
+        )
+        .route(
+            "/get_log_file_text_limited",
+            get(routes::log_files::get_log_file_text_limited),
+        )
+        .route(
+            "/get_log_file_octet_limited",
+            get(routes::log_files::get_log_file_octet_limited),
+        )
+        .route(
+            "/get_log_file_octet_offset_limited",
+            get(routes::log_files::get_log_file_octet_offset_limited),
+        )
+        .route(
+            "/get_log_file_octet_offset_limited_attachment",
+            get(routes::log_files::get_log_file_octet_offset_limited_attachment),
         )
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -97,11 +114,9 @@ async fn main() -> anyhow::Result<()> {
                         .on_request(DefaultOnRequest::new().level(tracing::Level::INFO))
                         .on_response(DefaultOnResponse::new().level(tracing::Level::INFO)),
                 )
-                .layer(
-                    CorsLayer::new()
-                        .allow_origin(tower_http::cors::Any)
-                        .allow_methods([Method::GET, Method::OPTIONS, Method::POST]),
-                ),
+                .layer(RequestDecompressionLayer::new())
+                .layer(CompressionLayer::new())
+                .layer(CorsLayer::permissive()),
         );
 
     let addr = cli_args.socket_address;
