@@ -173,7 +173,8 @@ impl ApiStateInner {
                 tracing::debug!(id=%stderr_task_id, "Finished reading stderr");
             });
 
-            task.run(timeout, Some(stdout_tx), Some(stderr_tx)).await;
+            task.run_os_process(timeout, Some(stdout_tx), Some(stderr_tx))
+                .await;
 
             // Keeping task in memory for 15 minutes after it's done.
             // simulating an in-memory database.

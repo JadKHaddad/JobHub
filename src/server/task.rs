@@ -155,7 +155,7 @@ impl Task {
     }
 
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
-    pub async fn run<O, E>(
+    pub async fn run_os_process<O, E>(
         mut self,
         timeout: Duration,
         stdout_writer: Option<O>,
