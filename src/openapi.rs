@@ -26,6 +26,8 @@ use utoipa::{
         crate::routes::log_files::get_log_file_octet_offset_limited_attachment,
     ),
     components(schemas(
+        crate::server::task::Status,
+        crate::server::task::DownloadZipFileStatus,
         crate::server::task::ProcessStatus,
         crate::server::task::FailOperation,
         crate::server::task::ExitedStatus,

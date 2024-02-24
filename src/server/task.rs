@@ -322,7 +322,7 @@ impl Task {
     }
 
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
-    pub async fn run_download_and_unzip_from_google_drive_download_url(
+    pub async fn run_download_and_unzip_from_download_url(
         mut self,
         timeout: Duration,
         download_url: url::Url,
@@ -341,7 +341,7 @@ impl Task {
 
                 DownloadZipFileStatus::Canceled
             },
-            result = Self::download_and_unzip_from_google_drive_download_url(download_url, project_dir) => {
+            result = Self::download_and_unzip_from_download_url(download_url, project_dir) => {
                 match result {
                     Ok(_) => {
                         DownloadZipFileStatus::Exited
@@ -358,7 +358,7 @@ impl Task {
         tracing::debug!("Terminated");
     }
 
-    async fn download_and_unzip_from_google_drive_download_url(
+    async fn download_and_unzip_from_download_url(
         download_url: url::Url,
         project_dir: std::path::PathBuf,
     ) -> Result<(), DownloadError> {
@@ -406,7 +406,7 @@ impl Task {
     }
 }
 
-/// Inner error type for [`Task::download_and_unzip_from_google_drive_download_url`]
+/// Inner error type for [`Task::download_and_unzip_from_download_url`]
 #[derive(Debug, thiserror::Error)]
 enum DownloadError {
     #[error("Reqwest error: {0}")]

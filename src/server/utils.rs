@@ -1,9 +1,9 @@
 #[derive(Debug, thiserror::Error)]
 pub enum GoogleConvertLinkError {
-    #[error("Invalid scheme: {0}")]
-    InvalidScheme(String),
-    #[error("Invalid host: {0}")]
-    InvalidHost(String),
+    #[error("Invalid scheme")]
+    InvalidScheme,
+    #[error("Invalid host")]
+    InvalidHost,
     #[error("No host")]
     NoHost,
     #[error("No id in path")]
@@ -17,12 +17,12 @@ pub fn convert_google_share_or_view_url_to_download_url(
 ) -> Result<url::Url, GoogleConvertLinkError> {
     let schme = share_url.scheme();
     if schme != "https" {
-        return Err(GoogleConvertLinkError::InvalidScheme(schme.to_string()));
+        return Err(GoogleConvertLinkError::InvalidScheme);
     }
 
     let host = share_url.host_str().ok_or(GoogleConvertLinkError::NoHost)?;
     if host != "drive.google.com" {
-        return Err(GoogleConvertLinkError::InvalidHost(host.to_string()));
+        return Err(GoogleConvertLinkError::InvalidHost);
     }
 
     // get the third path segment
