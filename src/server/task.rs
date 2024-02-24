@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{io::Read, process::ExitStatus, sync::Arc, time::Duration};
+use std::{process::ExitStatus, sync::Arc, time::Duration};
 use tokio::{
     io::AsyncWrite,
     process::Command,
@@ -369,12 +369,21 @@ impl Task {
         let bytes = response.bytes().await.map_err(DownloadError::Bytes)?;
         tracing::debug!("Zip file downloaded");
 
-        let mut zip =
-            zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(DownloadError::Zip)?;
+        let zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(DownloadError::Zip)?;
 
         tracing::debug!("Unzipping files");
+
+        tokio::task::spawn_blocking(move || Self::unzip(zip, project_dir))
+            .await
+            .map_err(|_| DownloadError::BlockingTask)?
+    }
+
+    fn unzip(
+        mut zip: zip::ZipArchive<std::io::Cursor<axum::body::Bytes>>,
+        project_dir: std::path::PathBuf,
+    ) -> Result<(), DownloadError> {
         for i in 0..zip.len() {
-            let file = zip.by_index(i).map_err(DownloadError::Zip)?;
+            let mut file = zip.by_index(i).map_err(DownloadError::Zip)?;
             let file_name = std::path::PathBuf::from(file.name());
             // Strip all directories
             let file_name = file_name
@@ -386,18 +395,9 @@ impl Task {
 
             let file_name = project_dir.join(file_name);
 
-            let zip_file_bytes = file
-                .bytes()
-                .collect::<Result<Vec<u8>, _>>()
-                .map_err(DownloadError::Io)?;
+            let mut outfile = std::fs::File::create(&file_name).map_err(DownloadError::Io)?;
 
-            let mut outfile = tokio::fs::File::create(&file_name)
-                .await
-                .map_err(DownloadError::Io)?;
-
-            let _ = tokio::io::copy(&mut std::io::Cursor::new(zip_file_bytes), &mut outfile)
-                .await
-                .map_err(DownloadError::Io)?;
+            let _ = std::io::copy(&mut file, &mut outfile).map_err(DownloadError::Io)?;
 
             tracing::debug!(?file_name, "Unzipped file");
         }
@@ -417,4 +417,6 @@ enum DownloadError {
     Zip(zip::result::ZipError),
     #[error("Io error: {0}")]
     Io(std::io::Error),
+    #[error("Failed to spawn blocking task")]
+    BlockingTask,
 }

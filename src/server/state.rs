@@ -10,6 +10,7 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     ops::Deref,
+    path::PathBuf,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc,
@@ -25,9 +26,9 @@ pub struct ApiState {
 }
 
 impl ApiState {
-    pub fn new(api_token: String) -> Self {
+    pub fn new(api_token: String, projects_dir: String) -> Self {
         Self {
-            inner: Arc::new(ApiStateInner::new(api_token)),
+            inner: Arc::new(ApiStateInner::new(api_token, projects_dir)),
         }
     }
 
@@ -67,15 +68,17 @@ pub struct ApiStateInner {
     /// I'm not wrapping [`ApiStateInner`] in a lock.
     /// So it's a good old [`AtomicU32`].
     current_id: AtomicU32,
+    projects_dir: String,
 }
 
 impl ApiStateInner {
-    pub fn new(api_token: String) -> Self {
+    pub fn new(api_token: String, projects_dir: String) -> Self {
         Self {
             api_token,
             connection_manager: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
+            projects_dir,
         }
     }
 
@@ -89,6 +92,49 @@ impl ApiStateInner {
         self.current_id.store(id + 1, Ordering::Relaxed);
 
         id
+    }
+
+    pub async fn run_download_task(
+        &self,
+        chat_id: String,
+        download_url: url::Url,
+        project_name: String,
+    ) -> Result<String, std::io::Error> {
+        // Let's create a directory for the project
+        let project_dir = PathBuf::from(&self.projects_dir).join(project_name);
+        tokio::fs::create_dir_all(&project_dir).await?;
+
+        let id = self.increment_current_task_id().to_string();
+        let task_id = id.clone();
+
+        let timeout = std::time::Duration::from_secs(600);
+
+        let (task, task_handle) = Task::new(id.clone());
+        let task_data = TaskData {
+            chat_id,
+            handle: task_handle,
+        };
+
+        let mut tasks = self.tasks.write().await;
+        tasks.insert(id.clone(), task_data);
+
+        let tasks = self.tasks.clone();
+
+        tokio::spawn(async move {
+            task.run_download_and_unzip_from_download_url(timeout, download_url, project_dir)
+                .await;
+
+            // Keeping task in memory for 15 minutes after it's done.
+            // simulating an in-memory database.
+
+            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
+            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
+            tracing::debug!(id=%task_id, "Removing task from memory");
+            let mut tasks = tasks.write().await;
+            tasks.remove(&task_id);
+        });
+
+        Ok(id)
     }
 
     pub async fn run_task(&self, chat_id: String) -> String {

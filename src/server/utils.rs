@@ -1,4 +1,7 @@
-#[derive(Debug, thiserror::Error)]
+use serde::Serialize;
+use utoipa::ToSchema;
+
+#[derive(Debug, thiserror::Error, Serialize, ToSchema)]
 pub enum GoogleConvertLinkError {
     #[error("Invalid scheme")]
     InvalidScheme,

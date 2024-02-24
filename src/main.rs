@@ -3,7 +3,7 @@ use std::{net::SocketAddr, path::PathBuf};
 use anyhow::Context;
 use axum::{
     extract::{ConnectInfo, Request, State, WebSocketUpgrade},
-    http::{HeaderMap, Method},
+    http::HeaderMap,
     middleware::{self, Next},
     response::IntoResponse,
     routing::{get, post, put},
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cli_args = CliArgs::parse();
 
-    let state = ApiState::new(cli_args.api_token);
+    let state = ApiState::new(cli_args.api_token, cli_args.projects_dir);
 
     let api = Router::new()
         .route(
@@ -63,6 +63,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .route("/list_log_files", get(routes::log_files::list_log_files))
+        .route(
+            "/api/download_zip_file",
+            post(routes::upload_zip_file::download_zip_file),
+        )
         .route(
             "/get_log_file_text",
             get(routes::log_files::get_log_file_text),

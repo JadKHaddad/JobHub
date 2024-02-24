@@ -15,4 +15,8 @@ pub struct CliArgs {
     /// The API token to use for authentication
     #[clap(long, env = "API_TOKEN")]
     pub api_token: String,
+
+    /// The directory where the projects are located
+    #[clap(long, env = "PROJECTS_DIR", default_value = "projects")]
+    pub projects_dir: String,
 }
