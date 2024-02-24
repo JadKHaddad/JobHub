@@ -38,7 +38,8 @@ use utoipa::{
         crate::routes::request_chat_id::RequestChatIdReponse,
         crate::routes::upload_zip_file::DownloadZipFileOkReponse,
         crate::routes::upload_zip_file::DownloadZipFileErrorReponse,
-        crate::routes::log_files::ListLogfilesResponse,
+        crate::routes::log_files::ListLogfilesOkResponse,
+        crate::routes::log_files::ListLogfilesErrorResponse,
     ))
 )]
 struct ApiDoc;

@@ -260,6 +260,35 @@ impl ApiStateInner {
             _ => None,
         }
     }
+
+    pub async fn list_files(&self, project_name: String) -> Result<Vec<String>, ListFilesError> {
+        let project_dir = PathBuf::from(&self.projects_dir).join(project_name);
+
+        if !project_dir.exists() {
+            return Err(ListFilesError::NotFound);
+        }
+
+        let mut read_dir = tokio::fs::read_dir(project_dir).await?;
+
+        let mut files: Vec<String> = Vec::new();
+
+        while let Ok(Some(entry)) = read_dir.next_entry().await {
+            let file_name = entry.file_name();
+            let file_name = file_name.to_string_lossy().to_string();
+
+            files.push(file_name);
+        }
+
+        Ok(files)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ListFilesError {
+    #[error("Project not found")]
+    NotFound,
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 impl Deref for ApiState {

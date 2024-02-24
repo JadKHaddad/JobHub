@@ -10,7 +10,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
 pub struct DownloadZipFileOkReponse {
@@ -49,14 +49,11 @@ impl IntoResponse for DownloadZipFileErrorReponse {
     }
 }
 
-#[derive(Deserialize, ToSchema, IntoParams)]
+#[derive(Deserialize)]
 pub struct DownloadZipFileQuery {
     /// Name of the project
     project_name: String,
     /// Google drive share link for the zip file
-    #[schema(
-        example = "https://drive.google.com/file/d/1FAjgIAL81UvshCn2owqlcPnvXl_k0cP2/view?usp=sharing"
-    )]
     google_drive_share_link: String,
 }
 
