@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{process::ExitStatus, sync::Arc, time::Duration};
+use std::{io::Read, process::ExitStatus, sync::Arc, time::Duration};
 use tokio::{
     io::AsyncWrite,
     process::Command,
@@ -13,6 +13,24 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(tag = "status", content = "content")]
 pub enum Status {
+    Download(DownloadZipFileStatus),
+    Process(ProcessStatus),
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(tag = "status", content = "content")]
+pub enum DownloadZipFileStatus {
+    Created,
+    Failed { reason: String },
+    Running,
+    Canceled,
+    Exited,
+    Timeout,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(tag = "status", content = "content")]
+pub enum ProcessStatus {
     Created,
     Failed { operation: FailOperation },
     Running,
@@ -58,7 +76,7 @@ impl From<ExitStatus> for ExitedStatus {
     }
 }
 
-impl From<ExitStatus> for Status {
+impl From<ExitStatus> for ProcessStatus {
     fn from(exit_status: ExitStatus) -> Self {
         Self::Exited {
             exit_status: exit_status.into(),
@@ -115,7 +133,7 @@ impl Task {
 
         let data = Arc::new(Data {
             id,
-            status: RwLock::new(Status::Created),
+            status: RwLock::new(Status::Process(ProcessStatus::Created)),
         });
 
         let handle = Handle {
@@ -195,9 +213,9 @@ impl Task {
             Err(err) => {
                 tracing::error!(?err, "Failed to spawn OS process");
 
-                self.set_status_and_log(Status::Failed {
+                self.set_status_and_log(Status::Process(ProcessStatus::Failed {
                     operation: FailOperation::OnSpawn,
-                })
+                }))
                 .await;
 
                 return;
@@ -230,7 +248,8 @@ impl Task {
             });
         }
 
-        self.set_status_and_log(Status::Running).await;
+        self.set_status_and_log(Status::Process(ProcessStatus::Running))
+            .await;
 
         let status = tokio::select! {
             _ = tokio::time::sleep(timeout) => {
@@ -243,18 +262,18 @@ impl Task {
                         match child.wait().await {
                             Ok(exit_status) => {
                                 tracing::debug!(?exit_status, "OS process exited with status");
-                                Status::Timeout
+                                ProcessStatus::Timeout
                             },
                             Err(err) => {
                                 tracing::error!(?err, "Failed to wait for OS process");
-                                Status::Failed{ operation: FailOperation::AfterTimeoutOnWait }
+                                ProcessStatus::Failed{ operation: FailOperation::AfterTimeoutOnWait }
                             }
                         }
                     },
 
                     Err(err) => {
                         tracing::error!(?err, "Failed to kill OS process");
-                        Status::Failed{ operation: FailOperation::AfterTimeoutOnKill }
+                        ProcessStatus::Failed{ operation: FailOperation::AfterTimeoutOnKill }
                     }
                 }
 
@@ -268,18 +287,18 @@ impl Task {
 
                         match child.wait().await {
                             Ok(_) => {
-                                Status::Canceled
+                                ProcessStatus::Canceled
                             },
                             Err(err) => {
                                 tracing::error!(?err, "Failed to wait for OS process");
-                                Status::Failed{ operation: FailOperation::AfterCancelOnWait }
+                                ProcessStatus::Failed{ operation: FailOperation::AfterCancelOnWait }
                             }
                         }
                     },
 
                     Err(err) => {
                         tracing::error!(?err, "Failed to kill OS process");
-                        Status::Failed{ operation: FailOperation::AfterCancelOnKill }
+                        ProcessStatus::Failed{ operation: FailOperation::AfterCancelOnKill }
                     }
                 }
             },
@@ -287,18 +306,115 @@ impl Task {
                 match res {
                     Ok(exit_status) => {
                         tracing::debug!(?exit_status, "OS process exited with status");
-                        Status::from(exit_status)
+                        ProcessStatus::from(exit_status)
                     },
                     Err(err) => {
                         tracing::error!(?err, "Failed to wait for OS process");
-                        Status::Failed{ operation: FailOperation::OnWait }
+                        ProcessStatus::Failed{ operation: FailOperation::OnWait }
                     }
                 }
             }
         };
 
-        self.set_status_and_log(status).await;
+        self.set_status_and_log(Status::Process(status)).await;
 
         tracing::debug!("Terminated");
     }
+
+    #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
+    pub async fn run_download_and_unzip_from_google_drive_download_url(
+        mut self,
+        timeout: Duration,
+        download_url: url::Url,
+        project_dir: std::path::PathBuf,
+    ) {
+        self.set_status_and_log(Status::Download(DownloadZipFileStatus::Running))
+            .await;
+
+        let status = tokio::select! {
+            _ = tokio::time::sleep(timeout) => {
+                tracing::debug!("Timeout");
+
+                DownloadZipFileStatus::Timeout
+            },
+            _ = self.wait_for_cancel_signal() => {
+
+                DownloadZipFileStatus::Canceled
+            },
+            result = Self::download_and_unzip_from_google_drive_download_url(download_url, project_dir) => {
+                match result {
+                    Ok(_) => {
+                        DownloadZipFileStatus::Exited
+                    },
+                    Err(err) => {
+                        DownloadZipFileStatus::Failed { reason: err.to_string() }
+                    }
+                }
+            },
+        };
+
+        self.set_status_and_log(Status::Download(status)).await;
+
+        tracing::debug!("Terminated");
+    }
+
+    async fn download_and_unzip_from_google_drive_download_url(
+        download_url: url::Url,
+        project_dir: std::path::PathBuf,
+    ) -> Result<(), DownloadError> {
+        let response = reqwest::get(download_url)
+            .await
+            .map_err(DownloadError::Reqwest)?;
+
+        let bytes = response.bytes().await.map_err(DownloadError::Bytes)?;
+        tracing::debug!("Zip file downloaded");
+
+        let mut zip =
+            zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(DownloadError::Zip)?;
+
+        tracing::debug!("Unzipping files");
+        for i in 0..zip.len() {
+            let file = zip.by_index(i).map_err(DownloadError::Zip)?;
+            let file_name = std::path::PathBuf::from(file.name());
+            // Strip all directories
+            let file_name = file_name
+                .file_name()
+                .ok_or(DownloadError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Invalid file name",
+                )))?;
+
+            let file_name = project_dir.join(file_name);
+
+            let zip_file_bytes = file
+                .bytes()
+                .collect::<Result<Vec<u8>, _>>()
+                .map_err(DownloadError::Io)?;
+
+            let mut outfile = tokio::fs::File::create(&file_name)
+                .await
+                .map_err(DownloadError::Io)?;
+
+            let _ = tokio::io::copy(&mut std::io::Cursor::new(zip_file_bytes), &mut outfile)
+                .await
+                .map_err(DownloadError::Io)?;
+
+            tracing::debug!(?file_name, "Unzipped file");
+        }
+
+        Ok(())
+    }
+}
+
+/// Inner error type for [`Task::download_and_unzip_from_google_drive_download_url`]
+#[derive(Debug, thiserror::Error)]
+enum DownloadError {
+    #[error("Reqwest error: {0}")]
+    Reqwest(reqwest::Error),
+    #[error("Failed to extract bytes: {0}")]
+    Bytes(reqwest::Error),
+    #[error("Zip error: {0}")]
+    Zip(zip::result::ZipError),
+    #[error("Io error: {0}")]
+    Io(std::io::Error),
 }

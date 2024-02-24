@@ -1,5 +1,8 @@
 use crate::server::{
-    extractors::chat_id::ChatId, response::ApiError, state::ApiState, task::Status,
+    extractors::chat_id::ChatId,
+    response::ApiError,
+    state::ApiState,
+    task::{ProcessStatus, Status},
 };
 use axum::{
     extract::{Path, State},
@@ -32,7 +35,7 @@ impl IntoResponse for StatusReponse {
     ),
     tag = "task",
     responses(
-        (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Running})),
+        (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Process(ProcessStatus::Running)})),
         (status = 404, description = "Task not found for this chat id"),
         (status = 400, description = "Chat id missing. Api key missing."),
         (status = 401, description = "Api key invalid"),

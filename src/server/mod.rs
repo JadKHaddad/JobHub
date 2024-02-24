@@ -1,5 +1,4 @@
 pub mod connection_manager;
-pub mod download_task;
 pub mod extractors;
 pub mod response;
 pub mod state;
