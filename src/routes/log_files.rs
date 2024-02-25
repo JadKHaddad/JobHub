@@ -68,7 +68,7 @@ pub struct ListFilesQuery {
         ("project_name" = String, Query, description = "Name of the project"),
     ),
     responses(
-        (status = 200, description = "List of names of available log files", body = ListLogfilesResponse, example = json!(ListLogfilesOkResponse{files: vec![String::from("file_1.log"), String::from("file_2.log")]})),
+        (status = 200, description = "List of names of available log files", body = ListLogfilesOkResponse, example = json!(ListLogfilesOkResponse{files: vec![String::from("file_1.log"), String::from("file_2.log")]})),
         (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
