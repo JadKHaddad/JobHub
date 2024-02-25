@@ -281,11 +281,41 @@ impl ApiStateInner {
 
         Ok(files)
     }
+
+    pub async fn get_file(
+        &self,
+        project_name: String,
+        file_name: String,
+    ) -> Result<String, GetFileError> {
+        let project_dir = PathBuf::from(&self.projects_dir).join(project_name);
+
+        if !project_dir.exists() {
+            return Err(GetFileError::NotFound);
+        }
+
+        let file_path = project_dir.join(file_name);
+
+        if !file_path.exists() {
+            return Err(GetFileError::NotFound);
+        }
+
+        let file_content = tokio::fs::read_to_string(file_path).await?;
+
+        Ok(file_content)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ListFilesError {
     #[error("Project not found")]
+    NotFound,
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetFileError {
+    #[error("Project/File not found")]
     NotFound,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

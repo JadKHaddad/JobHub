@@ -20,11 +20,6 @@ use utoipa::{
         crate::routes::upload_zip_file::download_zip_file,
         crate::routes::log_files::list_log_files,
         crate::routes::log_files::get_log_file_text,
-        crate::routes::log_files::get_log_file_text_limited,
-        crate::routes::log_files::get_log_file_octet,
-        crate::routes::log_files::get_log_file_octet_limited,
-        crate::routes::log_files::get_log_file_octet_offset_limited,
-        crate::routes::log_files::get_log_file_octet_offset_limited_attachment,
     ),
     components(schemas(
         crate::server::task::Status,

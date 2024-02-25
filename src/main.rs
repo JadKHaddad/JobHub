@@ -71,22 +71,6 @@ async fn main() -> anyhow::Result<()> {
             "/get_log_file_text",
             get(routes::log_files::get_log_file_text),
         )
-        .route(
-            "/get_log_file_text_limited",
-            get(routes::log_files::get_log_file_text_limited),
-        )
-        .route(
-            "/get_log_file_octet_limited",
-            get(routes::log_files::get_log_file_octet_limited),
-        )
-        .route(
-            "/get_log_file_octet_offset_limited",
-            get(routes::log_files::get_log_file_octet_offset_limited),
-        )
-        .route(
-            "/get_log_file_octet_offset_limited_attachment",
-            get(routes::log_files::get_log_file_octet_offset_limited_attachment),
-        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             validate_bearer_token,
