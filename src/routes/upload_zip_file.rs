@@ -68,7 +68,7 @@ pub struct DownloadZipFileQuery {
         ("project_name" = String, Query, description = "Name of the project"),
         ("google_drive_share_link" = String, Query, description = "Google drive share link for the zip file", example = "https://drive.google.com/file/d/1FAjgIAL81UvshCn2owqlcPnvXl_k0cP2/view?usp=sharing")
     ),
-    tag = "task",
+    tag = "download",
     responses(
         (status = 201, description = "Task was scheduled for running", body = DownloadZipFileOkReponse, example = json!(DownloadZipFileOkReponse{id: String::from("some-id")})),
         (status = 400, description = "Chat id missing, Api key missing"),

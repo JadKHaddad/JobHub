@@ -1,6 +1,5 @@
 use crate::server::{
     extractors::chat_id::ChatId,
-    response::ApiError,
     state::ApiState,
     task::{ProcessStatus, Status},
 };
@@ -14,14 +13,25 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct StatusReponse {
+pub struct StatusOkReponse {
     /// Status of a given task
     status: Status,
 }
 
-impl IntoResponse for StatusReponse {
+#[derive(Serialize, ToSchema)]
+pub enum StatusErrorReponse {
+    NotFound,
+}
+
+impl IntoResponse for StatusOkReponse {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
+    }
+}
+
+impl IntoResponse for StatusErrorReponse {
+    fn into_response(self) -> Response {
+        (StatusCode::NOT_FOUND, Json(self)).into_response()
     }
 }
 
@@ -35,8 +45,8 @@ impl IntoResponse for StatusReponse {
     ),
     tag = "task",
     responses(
-        (status = 200, description = "Status of a given task", body = StatusReponse, example = json!(StatusReponse{status: Status::Process(ProcessStatus::Running)})),
-        (status = 404, description = "Task not found for this chat id"),
+        (status = 200, description = "Status of a given task", body = StatusOkReponse, example = json!(StatusOkReponse{status: Status::Process(ProcessStatus::Running)})),
+        (status = 404, description = "Task not found for this chat id", body = StatusErrorReponse, example = json!(StatusErrorReponse::NotFound)),
         (status = 400, description = "Chat id missing. Api key missing."),
         (status = 401, description = "Api key invalid"),
     ),
@@ -48,11 +58,11 @@ pub async fn status(
     State(state): State<ApiState>,
     Path(id): Path<String>,
     ChatId(chat_id): ChatId,
-) -> Result<StatusReponse, ApiError> {
+) -> Result<StatusOkReponse, StatusErrorReponse> {
     let status = state
         .task_status(&id, &chat_id)
         .await
-        .ok_or(ApiError::NotFound)?;
+        .ok_or(StatusErrorReponse::NotFound)?;
 
-    Ok(StatusReponse { status })
+    Ok(StatusOkReponse { status })
 }

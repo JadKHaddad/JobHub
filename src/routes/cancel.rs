@@ -1,4 +1,4 @@
-use crate::server::{extractors::chat_id::ChatId, response::ApiError, state::ApiState};
+use crate::server::{extractors::chat_id::ChatId, state::ApiState};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -9,15 +9,26 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct CancelReponse {
+pub struct CancelOkReponse {
     /// Task id that was scheduled for cancellation
     #[schema(example = "0")]
     id: String,
 }
 
-impl IntoResponse for CancelReponse {
+#[derive(Serialize, ToSchema)]
+pub enum CancelErrorReponse {
+    NotFound,
+}
+
+impl IntoResponse for CancelOkReponse {
     fn into_response(self) -> Response {
         (StatusCode::ACCEPTED, Json(self)).into_response()
+    }
+}
+
+impl IntoResponse for CancelErrorReponse {
+    fn into_response(self) -> Response {
+        (StatusCode::NOT_FOUND, Json(self)).into_response()
     }
 }
 
@@ -31,8 +42,8 @@ impl IntoResponse for CancelReponse {
     ),
     tag = "task",
     responses(
-        (status = 202, description = "Task was scheduled for cancellation", body = CancelReponse, example = json!(CancelReponse{id: String::from("some-id")})),
-        (status = 404, description = "Task not found for this chat id"),
+        (status = 202, description = "Task was scheduled for cancellation", body = CancelOkReponse, example = json!(CancelOkReponse{id: String::from("some-id")})),
+        (status = 404, description = "Task not found for this chat id", body = CancelErrorReponse, example = json!(CancelErrorReponse::NotFound)),
         (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
@@ -44,11 +55,11 @@ pub async fn cancel(
     State(state): State<ApiState>,
     Path(id): Path<String>,
     ChatId(chat_id): ChatId,
-) -> Result<CancelReponse, ApiError> {
+) -> Result<CancelOkReponse, CancelErrorReponse> {
     let _ = state
         .cancel_task(&id, &chat_id)
         .await
-        .ok_or(ApiError::NotFound)?;
+        .ok_or(CancelErrorReponse::NotFound)?;
 
-    Ok(CancelReponse { id })
+    Ok(CancelOkReponse { id })
 }

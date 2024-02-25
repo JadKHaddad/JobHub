@@ -11,7 +11,7 @@ use tokio::{
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
-#[serde(tag = "status", content = "content")]
+#[serde(tag = "type", content = "content")]
 pub enum Status {
     Download(DownloadZipFileStatus),
     Process(ProcessStatus),
