@@ -11,6 +11,8 @@ RUN --mount=type=cache,target=/home/app/target \
 
 FROM debian:bookworm as runner
 
+RUN apt-get update && apt-get install -y libssl-dev ca-certificates
+
 RUN addgroup --system app && adduser app --system --ingroup app
 
 COPY --from=builder /usr/local/bin/job_hub /usr/local/bin/job_hub
