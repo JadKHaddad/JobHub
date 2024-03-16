@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
             "/request_chat_id",
             get(routes::request_chat_id::request_chat_id),
         )
-        .route("/run", post(routes::run::run))
+        //.route("/run", post(routes::run::run)) // deprecated, thus removed
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .route("/list_log_files", get(routes::log_files::list_log_files))

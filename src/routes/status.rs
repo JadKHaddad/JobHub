@@ -40,8 +40,8 @@ impl IntoResponse for StatusErrorReponse {
     get,
     path = "/api/status/{id}", 
     params(
-        ("id" = String, Path, description = "Task id. generated using the `/api/run` endpoint"),
-        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint")
+        ("id" = String, Path, description = "Task id. generated using the `/api/download_zip_file` endpoint."),
+        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint.")
     ),
     tag = "task",
     responses(

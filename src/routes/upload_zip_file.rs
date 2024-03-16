@@ -57,16 +57,16 @@ pub struct DownloadZipFileQuery {
     google_drive_share_link: String,
 }
 
-/// Schedule a download of a zip file
+/// Schedule a download of a zip file from a Google Drive link.
 ///
 /// This endpoint will schedule a task for running. The task will be executed asynchronously.
 #[utoipa::path(
     post,
     path = "/api/download_zip_file", 
     params(
-        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint"),
-        ("project_name" = String, Query, description = "Name of the project"),
-        ("google_drive_share_link" = String, Query, description = "Google drive share link for the zip file", example = "https://drive.google.com/file/d/1FAjgIAL81UvshCn2owqlcPnvXl_k0cP2/view?usp=sharing")
+        ("chat_id" = String, Query, description = "Chat id. generated using the `/api/request_chat_id` endpoint."),
+        ("project_name" = String, Query, description = "Name of the project."),
+        ("google_drive_share_link" = String, Query, description = "Google drive share link for the zip file.")
     ),
     tag = "download",
     responses(
