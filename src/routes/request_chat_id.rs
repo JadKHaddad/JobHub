@@ -21,10 +21,9 @@ impl IntoResponse for RequestChatIdReponse {
     }
 }
 
-/// Request a chat id
+/// Request a chat id.
 ///
-/// This endpoint will generate a chat id for this session. The chat id is required for every other endpoint.
-/// The chat id can be used to schedule tasks and to get the status of a task and must be provided as a query parameter.
+/// This endpoint will generate a chat id for this session. The chat id is required for every other endpoint and must be provided as a query parameter.
 #[utoipa::path(
     get,
     path = "/api/request_chat_id",
