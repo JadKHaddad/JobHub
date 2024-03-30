@@ -1,12 +1,9 @@
 use serde::Serialize;
-use std::{process::ExitStatus, sync::Arc, time::Duration};
+use std::{ffi::OsStr, process::ExitStatus, sync::Arc, time::Duration};
 use tokio::{
-    io::AsyncWrite,
+    io::{AsyncRead, AsyncWrite},
     process::Command,
-    sync::{
-        mpsc::{self},
-        RwLock,
-    },
+    sync::{mpsc, RwLock},
 };
 use utoipa::ToSchema;
 
@@ -172,13 +169,47 @@ impl Task {
         tracing::warn!("No more signals. Handle was probably dropped");
     }
 
+    async fn copy_io<R, W>(reader: &mut R, writter: &mut W)
+    where
+        R: AsyncRead + Unpin + ?Sized,
+        W: AsyncWrite + Unpin + ?Sized,
+    {
+        if let Err(err) = tokio::io::copy(reader, writter).await {
+            tracing::error!(?err, "Failed to copy to writer");
+        }
+
+        tracing::debug!("Finished copying to writer");
+    }
+
+    #[tracing::instrument(skip_all, fields(id=task_id))]
+    async fn copy_stdout<R, W>(task_id: String, reader: &mut R, writter: &mut W)
+    where
+        R: AsyncRead + Unpin + ?Sized,
+        W: AsyncWrite + Unpin + ?Sized,
+    {
+        Self::copy_io(reader, writter).await;
+    }
+
+    #[tracing::instrument(skip_all, fields(id=task_id))]
+    async fn copy_stderr<R, W>(task_id: String, reader: &mut R, writter: &mut W)
+    where
+        R: AsyncRead + Unpin + ?Sized,
+        W: AsyncWrite + Unpin + ?Sized,
+    {
+        Self::copy_io(reader, writter).await;
+    }
+
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
-    pub async fn run_os_process<O, E>(
+    pub async fn run_os_process<S, I, O, E>(
         mut self,
+        command: S,
+        args: I,
         timeout: Duration,
         stdout_writer: Option<O>,
         stderr_writer: Option<E>,
     ) where
+        S: AsRef<OsStr>,
+        I: IntoIterator<Item = S>,
         O: 'static + AsyncWrite + Unpin + Send,
         E: 'static + AsyncWrite + Unpin + Send,
     {
@@ -194,19 +225,25 @@ impl Task {
             std::process::Stdio::null()
         };
 
-        let child = if cfg!(target_os = "windows") {
-            Command::new("powershell")
-                .args(["-File", "loop_numbers.ps1"])
-                .stdout(stdout)
-                .stderr(stderr)
-                .spawn()
-        } else {
-            Command::new("bash")
-                .args(["-c", "while true; do echo 1; sleep 1; done"])
-                .stdout(stdout)
-                .stderr(stderr)
-                .spawn()
-        };
+        // let child = if cfg!(target_os = "windows") {
+        //     Command::new(command)
+        //         .args(args)
+        //         .stdout(stdout)
+        //         .stderr(stderr)
+        //         .spawn()
+        // } else {
+        //     Command::new("bash")
+        //         .args(["-c", "while true; do echo 1; sleep 1; done"])
+        //         .stdout(stdout)
+        //         .stderr(stderr)
+        //         .spawn()
+        // };
+
+        let child = Command::new(command)
+            .args(args)
+            .stdout(stdout)
+            .stderr(stderr)
+            .spawn();
 
         let mut child = match child {
             Ok(child) => child,
@@ -223,27 +260,21 @@ impl Task {
         };
 
         if let Some(mut write) = stdout_writer {
+            let id = self.id().to_string();
             let stdout = child.stdout.take();
             tokio::spawn(async move {
                 if let Some(mut stdout) = stdout {
-                    if let Err(err) = tokio::io::copy(&mut stdout, &mut write).await {
-                        tracing::error!(?err, "Failed to copy stdout to writer");
-                    }
-
-                    tracing::debug!("Finished copying stdout to writer");
+                    Self::copy_stdout(id, &mut stdout, &mut write).await;
                 }
             });
         }
 
         if let Some(mut write) = stderr_writer {
+            let id = self.id().to_string();
             let stderr = child.stderr.take();
             tokio::spawn(async move {
                 if let Some(mut stderr) = stderr {
-                    if let Err(err) = tokio::io::copy(&mut stderr, &mut write).await {
-                        tracing::error!(?err, "Failed to copy stderr to writer");
-                    }
-
-                    tracing::debug!("Finished copying stderr to writer");
+                    Self::copy_stderr(id, &mut stderr, &mut write).await;
                 }
             });
         }

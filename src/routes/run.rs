@@ -42,7 +42,8 @@ impl IntoResponse for RunReponse {
 )]
 #[deprecated(note = "replaced by `download_zip_file`")]
 pub async fn run(State(state): State<ApiState>, ChatId(chat_id): ChatId) -> RunReponse {
-    let id = state.run_task(chat_id).await;
+    todo!();
+    // let id = state.run_task(chat_id).await;
 
-    RunReponse { id }
+    // RunReponse { id }
 }
