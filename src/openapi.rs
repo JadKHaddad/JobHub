@@ -10,10 +10,11 @@ use utoipa::{
     OpenApi,
 };
 
+// TODO: Error responses are added to the schema, but they are not referenced in the paths
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        crate::routes::run::run,
+        crate::routes::gs_log_to_locst_converter::gs_log_to_locst_converter,
         crate::routes::cancel::cancel,
         crate::routes::status::status,
         crate::routes::request_chat_id::request_chat_id,
@@ -27,7 +28,8 @@ use utoipa::{
         crate::server::task::ProcessStatus,
         crate::server::task::FailOperation,
         crate::server::task::ExitedStatus,
-        crate::routes::run::RunReponse,
+        crate::routes::gs_log_to_locst_converter::GsLogToLocstConverterOkResponse,
+        crate::routes::gs_log_to_locst_converter::GsLogToLocstConverterErrorResponse,
         crate::routes::cancel::CancelOkReponse,
         crate::routes::cancel::CancelErrorReponse,
         crate::routes::status::StatusOkReponse,
@@ -37,6 +39,7 @@ use utoipa::{
         crate::routes::upload_zip_file::DownloadZipFileErrorReponse,
         crate::routes::log_files::ListLogfilesOkResponse,
         crate::routes::log_files::ListLogfilesErrorResponse,
+        crate::routes::log_files::GetLogFileErrorResponse,
     ))
 )]
 struct ApiDoc;

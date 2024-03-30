@@ -58,7 +58,6 @@ async fn main() -> anyhow::Result<()> {
             "/request_chat_id",
             get(routes::request_chat_id::request_chat_id),
         )
-        //.route("/run", post(routes::run::run)) // deprecated, thus removed
         .route("/cancel/:id", put(routes::cancel::cancel))
         .route("/status/:id", get(routes::status::status))
         .route("/list_log_files", get(routes::log_files::list_log_files))
@@ -69,6 +68,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/get_log_file_text",
             get(routes::log_files::get_log_file_text),
+        )
+        .route(
+            "/gs_log_to_locst_converter",
+            post(routes::gs_log_to_locst_converter::gs_log_to_locst_converter),
         )
         .layer(middleware::from_fn_with_state(
             state.clone(),

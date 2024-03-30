@@ -147,9 +147,12 @@ impl ApiStateInner {
         &self,
         chat_id: String,
         project_name: String,
-    ) -> String {
+    ) -> Result<String, GsLogToLocstConverterError> {
         let project_dir = self.project_dir(&project_name);
-        // TODO: check if exists
+
+        if !project_dir.exists() {
+            return Err(GsLogToLocstConverterError::NotFound);
+        }
 
         let id = self.increment_current_task_id().to_string();
         let task_id = id.clone();
@@ -223,7 +226,7 @@ impl ApiStateInner {
             tasks.remove(&task_id);
         });
 
-        id
+        Ok(id)
     }
 
     /// Send a cancel signal to the task with the given id and return immediately.
@@ -297,6 +300,12 @@ impl ApiStateInner {
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum GsLogToLocstConverterError {
+    #[error("Project not found")]
+    NotFound,
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum ListFilesError {
     #[error("Project not found")]
     NotFound,
@@ -356,7 +365,8 @@ mod tests {
 
         let task_id = api_state
             .run_gs_log_to_locst_converter_task(chat_id.clone(), project_name)
-            .await;
+            .await
+            .expect("Failed to start task");
 
         loop {
             match api_state.task_status(&task_id, &chat_id).await {
