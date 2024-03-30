@@ -117,7 +117,7 @@ impl Handle {
             Ok(_) => {
                 tracing::info!("Sent cancel signal");
             }
-            Err(_) => tracing::warn!("Failed to send cancel signal. Taks was probably dropped"),
+            Err(_) => tracing::warn!("Failed to send cancel signal. Task was probably dropped"),
         }
     }
 }
