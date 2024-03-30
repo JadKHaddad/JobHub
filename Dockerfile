@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y libssl-dev ca-certificates python3 pyth
 RUN addgroup --system app && adduser app --system --ingroup app
 
 COPY ML_ETL /home/app/ML_ETL
+COPY requirements.dev.txt /home/app/ML_ETL/requirements.txt
+
 RUN pip3 install -r /home/app/ML_ETL/requirements.txt --break-system-packages
 
 COPY --from=builder /usr/local/bin/job_hub /usr/local/bin/job_hub
