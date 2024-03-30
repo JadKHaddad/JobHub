@@ -293,8 +293,6 @@ impl Task {
                         ProcessStatus::Failed{ operation: FailOperation::AfterTimeoutOnKill }
                     }
                 }
-
-
             },
             _ = self.wait_for_cancel_signal() => {
 
@@ -390,6 +388,7 @@ impl Task {
 
         tracing::debug!("Unzipping files");
 
+        // ZipFile is not Send -> spawn_blocking
         tokio::task::spawn_blocking(move || Self::unzip(zip, project_dir))
             .await
             .map_err(|_| DownloadError::BlockingTask)?
@@ -402,6 +401,7 @@ impl Task {
         for i in 0..zip.len() {
             let mut file = zip.by_index(i).map_err(DownloadError::Zip)?;
             let file_name = std::path::PathBuf::from(file.name());
+
             // Strip all directories
             let file_name = file_name
                 .file_name()
