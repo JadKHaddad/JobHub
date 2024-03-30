@@ -343,6 +343,7 @@ mod tests {
 
     // cargo test --package job_hub --lib -- server::state::tests::run_gs_log_to_locst_converter_task --exact --nocapture --ignored
     // python .\ML_ETL\GS\Logfiles\GSLogToLocustConverter.py --directory .\projects\project\ --force
+    // python3 ML_ETL/GS/Logfiles/GSLogToLocustConverter.py --directory projects/project --force
     #[tokio::test]
     #[ignore = "Observation test"]
     async fn run_gs_log_to_locst_converter_task() {
