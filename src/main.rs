@@ -2,14 +2,13 @@ use std::{net::SocketAddr, path::PathBuf};
 
 use anyhow::Context;
 use axum::{
-    extract::{ConnectInfo, Request, State, WebSocketUpgrade},
+    extract::{Request, State},
     http::HeaderMap,
     middleware::{self, Next},
     response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
-use axum_extra::{headers::UserAgent, TypedHeader};
 use clap::Parser;
 use job_hub::{
     cli_args::CliArgs,
@@ -85,7 +84,6 @@ async fn main() -> anyhow::Result<()> {
         .fallback_service(ServeDir::new(assets_dir).append_index_html_on_directories(true))
         .nest("/api", api)
         .route("/health", get(|| async { "ok" }))
-        .route("/ws", get(ws_handler))
         .with_state(state)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi.clone()))
         .merge(Redoc::with_url("/redoc", openapi))
@@ -152,21 +150,6 @@ async fn validate_bearer_token(
     let res = next.run(request).await;
 
     Ok(res)
-}
-
-async fn ws_handler(
-    State(state): State<ApiState>,
-    ws: WebSocketUpgrade,
-    user_agent: Option<TypedHeader<UserAgent>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-) -> impl IntoResponse {
-    let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
-        user_agent.to_string()
-    } else {
-        String::from("Unknown browser")
-    };
-
-    ws.on_upgrade(move |socket| state.clone().accept_connection(socket, user_agent, addr))
 }
 
 async fn shutdown_signal() {

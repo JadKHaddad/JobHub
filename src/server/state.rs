@@ -1,14 +1,6 @@
-use crate::server::ws::{IoType, ServerMessage, TaskIoChunk};
-
-use super::{
-    connection_manager::ConnectionManager,
-    task::{Handle, Status, Task},
-    ws::ClientMessage,
-};
-use axum::extract::ws::WebSocket;
+use super::task::{Handle, Status, Task};
 use std::{
     collections::HashMap,
-    net::SocketAddr,
     ops::Deref,
     path::PathBuf,
     sync::{
@@ -16,7 +8,7 @@ use std::{
         Arc,
     },
 };
-use tokio::{io::AsyncReadExt, sync::RwLock};
+use tokio::{io::DuplexStream, sync::RwLock};
 
 /// I want my [`ApiState`] to be [`Clone`] and [`Send`] and [`Sync`] as is.
 /// So I'm wrapping [`ApiState::inner`] in an [`Arc`].
@@ -35,22 +27,6 @@ impl ApiState {
     pub fn api_token_valid(&self, api_token: &str) -> bool {
         api_token == self.api_token
     }
-
-    pub async fn accept_connection(self, socket: WebSocket, user_agent: String, addr: SocketAddr) {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<ClientMessage>(100);
-
-        self.inner
-            .connection_manager
-            .accept_connection(tx, socket, user_agent, addr)
-            .await;
-
-        tokio::spawn(async move {
-            while let Some(msg) = rx.recv().await {
-                // Deal with the message
-                tracing::info!(?msg, "Received message from client");
-            }
-        });
-    }
 }
 
 /// Collecting relevant data for a task.
@@ -61,7 +37,6 @@ struct TaskData {
 
 pub struct ApiStateInner {
     api_token: String,
-    connection_manager: Arc<ConnectionManager>,
     /// Contains all the tasks that are currently running.
     /// The key is the task id.
     tasks: Arc<RwLock<HashMap<String, TaskData>>>,
@@ -75,7 +50,6 @@ impl ApiStateInner {
     pub fn new(api_token: String, projects_dir: String) -> Self {
         Self {
             api_token,
-            connection_manager: Arc::new(ConnectionManager::new()),
             tasks: Arc::new(RwLock::new(HashMap::new())),
             current_id: AtomicU32::new(0),
             projects_dir,
@@ -162,64 +136,13 @@ impl ApiStateInner {
         let mut tasks = self.tasks.write().await;
         tasks.insert(id.clone(), task_data);
 
-        let connection_manager = self.connection_manager.clone();
         let tasks = self.tasks.clone();
         tokio::spawn(async move {
-            let (stdout_tx, mut stdout_rx) = tokio::io::duplex(100);
-            let (stderr_tx, mut stderr_rx) = tokio::io::duplex(100);
+            // TODO: Decide what to do with the stdout and stderr streams.
+            let (_stdout_tx, mut _stdout_rx) = tokio::io::duplex(100);
+            let (_stderr_tx, mut _stderr_rx) = tokio::io::duplex(100);
 
-            let stdout_task_id = task_id.clone();
-            let stderr_task_id = task_id.clone();
-
-            let stdout_connection_manager = connection_manager.clone();
-            let stderr_connection_manager = connection_manager;
-
-            // While forwarding the outputs we can save the chunks to the database or send them to a client.
-            tokio::spawn(async move {
-                let mut chunk = [0; 256];
-                while let Ok(n) = stdout_rx.read(&mut chunk).await {
-                    if n == 0 {
-                        break;
-                    }
-
-                    let chunk = String::from_utf8_lossy(&chunk[..n]);
-                    tracing::debug!(id=%stdout_task_id, "{chunk}");
-
-                    let msg = ServerMessage::TaskIoChunk(TaskIoChunk {
-                        id: stdout_task_id.clone(),
-                        chunk: chunk.to_string(),
-                        io_type: IoType::Stdout,
-                    });
-
-                    stdout_connection_manager.broadcast(msg);
-                }
-
-                tracing::debug!(id=%stdout_task_id, "Finished reading stdout");
-            });
-
-            tokio::spawn(async move {
-                let mut chunk = [0; 256];
-                while let Ok(n) = stderr_rx.read(&mut chunk).await {
-                    if n == 0 {
-                        break;
-                    }
-
-                    let chunk = String::from_utf8_lossy(&chunk[..n]);
-                    tracing::error!(id=%stderr_task_id, "{chunk}");
-
-                    let msg = ServerMessage::TaskIoChunk(TaskIoChunk {
-                        id: stderr_task_id.clone(),
-                        chunk: chunk.to_string(),
-                        io_type: IoType::Stderr,
-                    });
-
-                    stderr_connection_manager.broadcast(msg);
-                }
-
-                tracing::debug!(id=%stderr_task_id, "Finished reading stderr");
-            });
-
-            task.run_os_process(timeout, Some(stdout_tx), Some(stderr_tx))
+            task.run_os_process::<DuplexStream, DuplexStream>(timeout, None, None)
                 .await;
 
             // Keeping task in memory for 15 minutes after it's done.
