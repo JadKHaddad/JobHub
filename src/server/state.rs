@@ -8,7 +8,7 @@ use std::{
         Arc,
     },
 };
-use tokio::{io::DuplexStream, sync::RwLock};
+use tokio::{io::AsyncReadExt, sync::RwLock};
 
 /// I want my [`ApiState`] to be [`Clone`] and [`Send`] and [`Sync`] as is.
 /// So I'm wrapping [`ApiState::inner`] in an [`Arc`].
@@ -98,11 +98,6 @@ impl ApiStateInner {
             task.run_download_and_unzip_from_download_url(timeout, download_url, project_dir)
                 .await;
 
-            // Keeping task in memory for 15 minutes after it's done.
-            // simulating an in-memory database.
-
-            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
-            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
             tracing::debug!(id=%task_id, "Removing task from memory");
             let mut tasks = tasks.write().await;
             tasks.remove(&task_id);
@@ -139,17 +134,43 @@ impl ApiStateInner {
         let tasks = self.tasks.clone();
         tokio::spawn(async move {
             // TODO: Decide what to do with the stdout and stderr streams.
-            let (_stdout_tx, mut _stdout_rx) = tokio::io::duplex(100);
-            let (_stderr_tx, mut _stderr_rx) = tokio::io::duplex(100);
+            let (stdout_tx, mut stdout_rx) = tokio::io::duplex(100);
+            let (stderr_tx, mut stderr_rx) = tokio::io::duplex(100);
 
-            task.run_os_process::<DuplexStream, DuplexStream>(timeout, None, None)
+            let stdout_task_id = task_id.clone();
+            let stderr_task_id = task_id.clone();
+
+            tokio::spawn(async move {
+                let mut chunk = [0; 256];
+                while let Ok(n) = stdout_rx.read(&mut chunk).await {
+                    if n == 0 {
+                        break;
+                    }
+
+                    let chunk = String::from_utf8_lossy(&chunk[..n]);
+                    tracing::debug!(id=%stdout_task_id, "{chunk}");
+                }
+
+                tracing::debug!(id=%stdout_task_id, "Finished reading stdout");
+            });
+
+            tokio::spawn(async move {
+                let mut chunk = [0; 256];
+                while let Ok(n) = stderr_rx.read(&mut chunk).await {
+                    if n == 0 {
+                        break;
+                    }
+
+                    let chunk = String::from_utf8_lossy(&chunk[..n]);
+                    tracing::error!(id=%stderr_task_id, "{chunk}");
+                }
+
+                tracing::debug!(id=%stderr_task_id, "Finished reading stderr");
+            });
+
+            task.run_os_process(timeout, Some(stdout_tx), Some(stderr_tx))
                 .await;
 
-            // Keeping task in memory for 15 minutes after it's done.
-            // simulating an in-memory database.
-
-            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
-            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
             tracing::debug!(id=%task_id, "Removing task from memory");
             let mut tasks = tasks.write().await;
             tasks.remove(&task_id);
