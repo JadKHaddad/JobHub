@@ -98,6 +98,12 @@ impl ApiStateInner {
             task.run_download_and_unzip_from_download_url(timeout, download_url, project_dir)
                 .await;
 
+            // TODO: remove after adding a database.
+            // Keeping task in memory for 15 minutes after it's done.
+            // simulating an in-memory database.
+
+            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
+            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
             tracing::debug!(id=%task_id, "Removing task from memory");
             let mut tasks = tasks.write().await;
             tasks.remove(&task_id);
@@ -171,6 +177,12 @@ impl ApiStateInner {
             task.run_os_process(timeout, Some(stdout_tx), Some(stderr_tx))
                 .await;
 
+            // TODO: remove after adding a database.
+            // Keeping task in memory for 15 minutes after it's done.
+            // simulating an in-memory database.
+
+            tracing::debug!(id=%task_id, "Task finished. Waiting 15 minutes before removing it from memory");
+            tokio::time::sleep(std::time::Duration::from_secs(900)).await;
             tracing::debug!(id=%task_id, "Removing task from memory");
             let mut tasks = tasks.write().await;
             tasks.remove(&task_id);

@@ -11,9 +11,12 @@ RUN --mount=type=cache,target=/home/app/target \
 
 FROM debian:bookworm as runner
 
-RUN apt-get update && apt-get install -y libssl-dev ca-certificates
+RUN apt-get update && apt-get install -y libssl-dev ca-certificates python3 python3-pip git
 
 RUN addgroup --system app && adduser app --system --ingroup app
+
+COPY ML_ETL /home/app/ML_ETL
+RUN pip3 install -r /home/app/ML_ETL/requirements.txt --break-system-packages
 
 COPY --from=builder /usr/local/bin/job_hub /usr/local/bin/job_hub
 
