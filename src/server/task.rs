@@ -225,20 +225,6 @@ impl Task {
             std::process::Stdio::null()
         };
 
-        // let child = if cfg!(target_os = "windows") {
-        //     Command::new(command)
-        //         .args(args)
-        //         .stdout(stdout)
-        //         .stderr(stderr)
-        //         .spawn()
-        // } else {
-        //     Command::new("bash")
-        //         .args(["-c", "while true; do echo 1; sleep 1; done"])
-        //         .stdout(stdout)
-        //         .stderr(stderr)
-        //         .spawn()
-        // };
-
         let child = Command::new(command)
             .args(args)
             .stdout(stdout)
