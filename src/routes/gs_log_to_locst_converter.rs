@@ -33,7 +33,7 @@ impl From<GsLogToLocstConverterError> for GsLogToLocstConverterErrorResponse {
 
 impl IntoResponse for GsLogToLocstConverterOkResponse {
     fn into_response(self) -> Response {
-        (StatusCode::OK, Json(self)).into_response()
+        (StatusCode::CREATED, Json(self)).into_response()
     }
 }
 
