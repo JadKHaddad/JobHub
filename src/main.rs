@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/list_log_files", get(routes::log_files::list_log_files))
         .route(
             "/download_zip_file",
-            post(routes::upload_zip_file::download_zip_file),
+            post(routes::download_zip_file::download_zip_file),
         )
         .route(
             "/get_log_file_text",

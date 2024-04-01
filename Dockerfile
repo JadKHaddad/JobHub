@@ -22,6 +22,8 @@ RUN pip3 install -r /home/app/ML_ETL/requirements.txt --break-system-packages
 
 COPY --from=builder /usr/local/bin/job_hub /usr/local/bin/job_hub
 
+RUN chown app:app /home/app
+
 USER app
 
 WORKDIR /home/app
@@ -29,4 +31,4 @@ WORKDIR /home/app
 ENTRYPOINT ["job_hub"]
 
 # DOCKER_BUILDKIT=1 docker build -t job_hub:latest . --progress=plain
-# docker run --rm -it job_hub:latest
+# docker run --rm -it -p 3000:3000 job_hub:latest --api-token "token" --socket-address "0.0.0.0:3000" --projects-dir "/home/app/projects"

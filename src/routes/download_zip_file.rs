@@ -1,5 +1,6 @@
 use crate::server::{
     extractors::{chat_id::ChatId, query::Query},
+    response::ApiError,
     state::ApiState,
     utils::GoogleConvertLinkError,
 };
@@ -24,7 +25,7 @@ pub struct DownloadZipFileOkReponse {
 pub enum DownloadZipFileErrorReponse {
     InvalidUrl,
     Convert(GoogleConvertLinkError),
-    ServerError,
+    ServerError(ApiError),
 }
 
 impl IntoResponse for DownloadZipFileOkReponse {
@@ -42,9 +43,7 @@ impl IntoResponse for DownloadZipFileErrorReponse {
             DownloadZipFileErrorReponse::Convert(_) => {
                 (StatusCode::BAD_REQUEST, Json(self)).into_response()
             }
-            DownloadZipFileErrorReponse::ServerError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(self)).into_response()
-            }
+            DownloadZipFileErrorReponse::ServerError(err) => err.into_response(),
         }
     }
 }
@@ -97,7 +96,7 @@ pub async fn download_zip_file(
     let id = state
         .run_download_task(chat_id, download_url, project_name)
         .await
-        .map_err(|_| DownloadZipFileErrorReponse::ServerError)?;
+        .map_err(|err| DownloadZipFileErrorReponse::ServerError(err.into()))?;
 
     Ok(DownloadZipFileOkReponse { id })
 }

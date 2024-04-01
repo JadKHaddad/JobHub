@@ -194,7 +194,10 @@ impl ApiStateInner {
                 Self::trace_stderr(stderr_task_id, stderr_rx).await;
             });
 
-            let command = String::from("python");
+            let command = cfg!(target_os = "windows")
+                .then(|| "python")
+                .unwrap_or("python3")
+                .to_string();
 
             let path_to_gs_log_to_locst_converter_script = PathBuf::from("ML_ETL")
                 .join("GS")
