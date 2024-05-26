@@ -53,7 +53,7 @@ pub struct GsLogToLocustConverterQuery {
     project_name: String,
 }
 
-/// TODO: Add description
+/// Converts the format of log files given in the GS log format to the format used by locust (Locust log format). 
 #[utoipa::path(
     post,
     path = "/api/gs_log_to_locust_converter", 
@@ -63,9 +63,7 @@ pub struct GsLogToLocustConverterQuery {
     ),
     tag = "convert",
     responses(
-        (status = 201, description = "Task was scheduled for running", body = GsLogToLocu
-    stConverterOkResponse, example = json!(GsLogToLocu
-        stConverterOkResponse{id: String::from("some-id")})),
+        (status = 201, description = "Task was scheduled for running", body = GsLogToLocustConverterOkResponse, example = json!(GsLogToLocustConverterOkResponse{id: String::from("some-id")})),
         (status = 400, description = "Chat id missing, Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
