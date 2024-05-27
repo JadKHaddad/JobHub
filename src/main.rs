@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
             get(routes::log_files::get_log_file_text),
         )
         .route(
-            "/gs_log_to_locst_converter",
+            "/gs_log_to_locust_converter",
             post(routes::gs_log_to_locust_converter::gs_log_to_locust_converter),
         )
         .layer(middleware::from_fn_with_state(
