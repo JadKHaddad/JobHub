@@ -1,6 +1,0 @@
-netdata==0.2.0
-pandas~=1.5.1
-numpy~=1.26.4
-typer~=0.4.1
-SQLAlchemy~=2.0.11
-rast-common-python @ git+https://github.com/JadKHaddad/RAST-Common-Python@feat/import_main
