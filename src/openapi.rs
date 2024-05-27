@@ -14,7 +14,7 @@ use utoipa::{
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        crate::routes::gs_log_to_locst_converter::gs_log_to_locst_converter,
+        crate::routes::gs_log_to_locust_converter::gs_log_to_locust_converter,
         crate::routes::cancel::cancel,
         crate::routes::status::status,
         crate::routes::request_chat_id::request_chat_id,
@@ -28,8 +28,8 @@ use utoipa::{
         crate::server::task::ProcessStatus,
         crate::server::task::FailOperation,
         crate::server::task::ExitedStatus,
-        crate::routes::gs_log_to_locst_converter::GsLogToLocstConverterOkResponse,
-        crate::routes::gs_log_to_locst_converter::GsLogToLocstConverterErrorResponse,
+        crate::routes::gs_log_to_locust_converter::GsLogToLocustConverterOkResponse,
+        crate::routes::gs_log_to_locust_converter::GsLogToLocustConverterErrorResponse,
         crate::routes::cancel::CancelOkReponse,
         crate::routes::cancel::CancelErrorReponse,
         crate::routes::status::StatusOkReponse,

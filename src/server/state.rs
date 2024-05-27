@@ -143,7 +143,7 @@ impl ApiStateInner {
         tracing::debug!("Finished reading stderr");
     }
 
-    pub async fn run_gs_log_to_locst_converter_task(
+    pub async fn run_gs_log_to_locust_converter_task(
         &self,
         chat_id: String,
         project_name: String,
@@ -367,7 +367,7 @@ mod tests {
         let project_name = "project".to_string();
 
         let task_id = api_state
-            .run_gs_log_to_locst_converter_task(chat_id.clone(), project_name)
+            .run_gs_log_to_locust_converter_task(chat_id.clone(), project_name)
             .await
             .expect("Failed to start task");
 
