@@ -24,6 +24,7 @@ COPY ML_ETL /home/app/ML_ETL
 
 RUN python3 -m venv /home/app/venv
 RUN /home/app/venv/bin/pip install -r /home/app/ML_ETL/requirements.txt
+RUN /home/app/venv/bin/pip install numpy --upgrade
 
 COPY --from=builder /usr/local/bin/job_hub /usr/local/bin/job_hub
 
