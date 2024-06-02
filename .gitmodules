@@ -1,5 +1,5 @@
 [submodule "ML_ETL"]
 	path = ML_ETL
-	url = git+ssh://git@git.jetbrains.space/jt-ctl/sim-ml/ML_ETL
+	url = https://github.com/jtpgames/ML_ETL.git
 [submodule ".\\ML_ETL\\"]
 	branch = main
