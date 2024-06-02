@@ -1,4 +1,6 @@
 /target
+/venv
 *.env
 .gitignore
 .github
+*.git

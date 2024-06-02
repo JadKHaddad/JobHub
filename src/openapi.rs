@@ -10,14 +10,15 @@ use utoipa::{
     OpenApi,
 };
 
+// TODO: Error responses are added to the schema, but they are not referenced in the paths
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        crate::routes::run::run,
+        crate::routes::gs_log_to_locust_converter::gs_log_to_locust_converter,
         crate::routes::cancel::cancel,
         crate::routes::status::status,
         crate::routes::request_chat_id::request_chat_id,
-        crate::routes::upload_zip_file::download_zip_file,
+        crate::routes::download_zip_file::download_zip_file,
         crate::routes::log_files::list_log_files,
         crate::routes::log_files::get_log_file_text,
     ),
@@ -27,16 +28,18 @@ use utoipa::{
         crate::server::task::ProcessStatus,
         crate::server::task::FailOperation,
         crate::server::task::ExitedStatus,
-        crate::routes::run::RunReponse,
+        crate::routes::gs_log_to_locust_converter::GsLogToLocustConverterOkResponse,
+        crate::routes::gs_log_to_locust_converter::GsLogToLocustConverterErrorResponse,
         crate::routes::cancel::CancelOkReponse,
         crate::routes::cancel::CancelErrorReponse,
         crate::routes::status::StatusOkReponse,
         crate::routes::status::StatusErrorReponse,
         crate::routes::request_chat_id::RequestChatIdReponse,
-        crate::routes::upload_zip_file::DownloadZipFileOkReponse,
-        crate::routes::upload_zip_file::DownloadZipFileErrorReponse,
+        crate::routes::download_zip_file::DownloadZipFileOkReponse,
+        crate::routes::download_zip_file::DownloadZipFileErrorReponse,
         crate::routes::log_files::ListLogfilesOkResponse,
         crate::routes::log_files::ListLogfilesErrorResponse,
+        crate::routes::log_files::GetLogFileErrorResponse,
     ))
 )]
 struct ApiDoc;

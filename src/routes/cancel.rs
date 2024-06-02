@@ -22,7 +22,7 @@ pub enum CancelErrorReponse {
 
 impl IntoResponse for CancelOkReponse {
     fn into_response(self) -> Response {
-        (StatusCode::ACCEPTED, Json(self)).into_response()
+        (StatusCode::OK, Json(self)).into_response()
     }
 }
 
@@ -42,7 +42,7 @@ impl IntoResponse for CancelErrorReponse {
     ),
     tag = "task",
     responses(
-        (status = 202, description = "Task was scheduled for cancellation", body = CancelOkReponse, example = json!(CancelOkReponse{id: String::from("some-id")})),
+        (status = 200, description = "Task was scheduled for cancellation", body = CancelOkReponse, example = json!(CancelOkReponse{id: String::from("some-id")})),
         (status = 404, description = "Task not found for this chat id", body = CancelErrorReponse, example = json!(CancelErrorReponse::NotFound)),
         (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
