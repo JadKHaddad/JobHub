@@ -52,7 +52,7 @@ impl IntoResponse for DownloadZipFileErrorResponse {
 pub struct DownloadZipFileQuery {
     /// Name of the project
     project_name: String,
-    /// Google drive share link for the zip file
+    /// Google Drive share link for the zip file
     google_drive_share_link: String,
 }
 
