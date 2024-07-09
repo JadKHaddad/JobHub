@@ -69,7 +69,7 @@ pub struct DownloadZipFileQuery {
     ),
     tag = "download",
     responses(
-        (status = 201, description = "Task was scheduled for running", body = DownloadZipFileOkReponse, example = json!(DownloadZipFileOkReponse{id: String::from("some-id")})),
+        (status = 201, description = "Task was scheduled for running", body = DownloadZipFileOkResponse, example = json!(DownloadZipFileOkResponse{id: String::from("some-id")})),
         (status = 400, description = "Chat id missing, Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),

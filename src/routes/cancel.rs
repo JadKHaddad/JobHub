@@ -42,8 +42,8 @@ impl IntoResponse for CancelErrorResponse {
     ),
     tag = "task",
     responses(
-        (status = 200, description = "Task was scheduled for cancellation", body = CancelOkReponse, example = json!(CancelOkReponse{id: String::from("some-id")})),
-        (status = 404, description = "Task not found for this chat id", body = CancelErrorReponse, example = json!(CancelErrorReponse::NotFound)),
+        (status = 200, description = "Task was scheduled for cancellation", body = CancelOkResponse, example = json!(CancelOkResponse{id: String::from("some-id")})),
+        (status = 404, description = "Task not found for this chat id", body = CancelErrorResponse, example = json!(CancelErrorResponse::NotFound)),
         (status = 400, description = "Chat id missing. Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),

@@ -45,8 +45,8 @@ impl IntoResponse for StatusErrorResponse {
     ),
     tag = "task",
     responses(
-        (status = 200, description = "Status of a given task", body = StatusOkReponse, example = json!(StatusOkReponse{status: Status::Process(ProcessStatus::Running)})),
-        (status = 404, description = "Task not found for this chat id", body = StatusErrorReponse, example = json!(StatusErrorReponse::NotFound)),
+        (status = 200, description = "Status of a given task", body = StatusOkResponse, example = json!(StatusOkResponse{status: Status::Process(ProcessStatus::Running)})),
+        (status = 404, description = "Task not found for this chat id", body = StatusErrorResponse, example = json!(StatusErrorResponse::NotFound)),
         (status = 400, description = "Chat id missing. Api key missing."),
         (status = 401, description = "Api key invalid"),
     ),
