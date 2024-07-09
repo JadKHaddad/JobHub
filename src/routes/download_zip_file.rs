@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct DownloadZipFileOkReponse {
+pub struct DownloadZipFileOkResponse {
     /// Task id that was scheduled for running
     #[schema(example = "0")]
     id: String,
@@ -22,28 +22,28 @@ pub struct DownloadZipFileOkReponse {
 
 #[derive(Serialize, ToSchema)]
 #[serde(tag = "error", content = "content")]
-pub enum DownloadZipFileErrorReponse {
+pub enum DownloadZipFileErrorResponse {
     InvalidUrl,
     Convert(GoogleConvertLinkError),
     ServerError(ApiError),
 }
 
-impl IntoResponse for DownloadZipFileOkReponse {
+impl IntoResponse for DownloadZipFileOkResponse {
     fn into_response(self) -> Response {
         (StatusCode::CREATED, Json(self)).into_response()
     }
 }
 
-impl IntoResponse for DownloadZipFileErrorReponse {
+impl IntoResponse for DownloadZipFileErrorResponse {
     fn into_response(self) -> Response {
         match self {
-            DownloadZipFileErrorReponse::InvalidUrl => {
+            DownloadZipFileErrorResponse::InvalidUrl => {
                 (StatusCode::BAD_REQUEST, Json(self)).into_response()
             }
-            DownloadZipFileErrorReponse::Convert(_) => {
+            DownloadZipFileErrorResponse::Convert(_) => {
                 (StatusCode::BAD_REQUEST, Json(self)).into_response()
             }
-            DownloadZipFileErrorReponse::ServerError(err) => err.into_response(),
+            DownloadZipFileErrorResponse::ServerError(err) => err.into_response(),
         }
     }
 }
@@ -81,22 +81,22 @@ pub async fn download_zip_file(
     State(state): State<ApiState>,
     ChatId(chat_id): ChatId,
     Query(query): Query<DownloadZipFileQuery>,
-) -> Result<DownloadZipFileOkReponse, DownloadZipFileErrorReponse> {
+) -> Result<DownloadZipFileOkResponse, DownloadZipFileErrorResponse> {
     let project_name = query.project_name;
     let google_drive_share_link = query.google_drive_share_link;
 
     let google_drive_share_link = url::Url::parse(&google_drive_share_link)
-        .map_err(|_| DownloadZipFileErrorReponse::InvalidUrl)?;
+        .map_err(|_| DownloadZipFileErrorResponse::InvalidUrl)?;
 
     let download_url = crate::server::utils::convert_google_share_or_view_url_to_download_url(
         google_drive_share_link,
     )
-    .map_err(DownloadZipFileErrorReponse::Convert)?;
+    .map_err(DownloadZipFileErrorResponse::Convert)?;
 
     let id = state
         .run_download_task(chat_id, download_url, project_name)
         .await
-        .map_err(|err| DownloadZipFileErrorReponse::ServerError(err.into()))?;
+        .map_err(|err| DownloadZipFileErrorResponse::ServerError(err.into()))?;
 
-    Ok(DownloadZipFileOkReponse { id })
+    Ok(DownloadZipFileOkResponse { id })
 }
