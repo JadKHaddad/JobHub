@@ -1,6 +1,6 @@
 //! TODO: Error responses are overlapping
 //! TODO: Impl intoSchema for ApiError or something
-//! TODO: Use some derives for Query paramas. Descriptions are getting out of control
+//! TODO: Use some derives for Query parameters. Descriptions are getting out of control
 //!
 use utoipa::{
     openapi::{
