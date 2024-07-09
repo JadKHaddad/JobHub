@@ -13,23 +13,23 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct StatusOkReponse {
+pub struct StatusOkResponse {
     /// Status of a given task
     status: Status,
 }
 
 #[derive(Serialize, ToSchema)]
-pub enum StatusErrorReponse {
+pub enum StatusErrorResponse {
     NotFound,
 }
 
-impl IntoResponse for StatusOkReponse {
+impl IntoResponse for StatusOkResponse {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
     }
 }
 
-impl IntoResponse for StatusErrorReponse {
+impl IntoResponse for StatusErrorResponse {
     fn into_response(self) -> Response {
         (StatusCode::NOT_FOUND, Json(self)).into_response()
     }
@@ -58,11 +58,11 @@ pub async fn status(
     State(state): State<ApiState>,
     Path(id): Path<String>,
     ChatId(chat_id): ChatId,
-) -> Result<StatusOkReponse, StatusErrorReponse> {
+) -> Result<StatusOkResponse, StatusErrorResponse> {
     let status = state
         .task_status(&id, &chat_id)
         .await
-        .ok_or(StatusErrorReponse::NotFound)?;
+        .ok_or(StatusErrorResponse::NotFound)?;
 
-    Ok(StatusOkReponse { status })
+    Ok(StatusOkResponse { status })
 }
