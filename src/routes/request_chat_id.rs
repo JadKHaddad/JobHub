@@ -9,13 +9,13 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct RequestChatIdReponse {
+pub struct RequestChatIdResponse {
     /// Chat id that was generated for this session
     #[schema(example = "0")]
     id: String,
 }
 
-impl IntoResponse for RequestChatIdReponse {
+impl IntoResponse for RequestChatIdResponse {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
     }
@@ -29,7 +29,7 @@ impl IntoResponse for RequestChatIdReponse {
     path = "/api/request_chat_id",
     tag = "task",
     responses(
-        (status = 200, description = "Generated chat id for this session", body = RequestChatIdReponse, example = json!(RequestChatIdReponse{id: String::from("some-id")})),
+        (status = 200, description = "Generated chat id for this session", body = RequestChatIdReponse, example = json!(RequestChatIdResponse{id: String::from("some-id")})),
         (status = 400, description = "Api key missing"),
         (status = 401, description = "Api key invalid"),
     ),
@@ -37,8 +37,8 @@ impl IntoResponse for RequestChatIdReponse {
         ("api_key" = []),
     ),
 )]
-pub async fn request_chat_id(State(state): State<ApiState>) -> RequestChatIdReponse {
+pub async fn request_chat_id(State(state): State<ApiState>) -> RequestChatIdResponse {
     let id = state.generate_random_chat_id();
 
-    RequestChatIdReponse { id }
+    RequestChatIdResponse { id }
 }
