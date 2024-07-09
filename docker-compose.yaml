@@ -12,5 +12,5 @@ services:
       - PROJECTS_DIR=/home/app/projects
       - API_TOKEN=
     ports:
-      - 127.0.0.1:2999:2999
+      - "127.0.0.1:2999:2999"
     restart: unless-stopped
