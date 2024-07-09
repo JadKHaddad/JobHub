@@ -108,7 +108,7 @@ impl Handle {
     /// This will not wait for the task to finish. Waiting for the task to finish may cause a bad response times for the api.
     /// Running tasks will be locked until the task is finished, which may take a long time.
     /// Locking the tasks will prevent other tasks from running.
-    #[tracing::instrument(name = "cancel_siganl", skip(self), fields(id=self.id()))]
+    #[tracing::instrument(name = "cancel_signal", skip(self), fields(id=self.id()))]
     pub async fn send_cancel_signal(&self) {
         match self.tx.send(()).await {
             Ok(_) => {
@@ -158,7 +158,7 @@ impl Task {
         self.set_status(status).await;
     }
 
-    #[tracing::instrument(name = "cancel_siganl", skip_all)]
+    #[tracing::instrument(name = "cancel_signal", skip_all)]
     async fn wait_for_cancel_signal(&mut self) {
         if self.rx.recv().await.is_some() {
             tracing::info!("Received cancel signal");
@@ -169,12 +169,12 @@ impl Task {
         tracing::warn!("No more signals. Handle was probably dropped");
     }
 
-    async fn copy_io<R, W>(reader: &mut R, writter: &mut W)
+    async fn copy_io<R, W>(reader: &mut R, writer: &mut W)
     where
         R: AsyncRead + Unpin + ?Sized,
         W: AsyncWrite + Unpin + ?Sized,
     {
-        if let Err(err) = tokio::io::copy(reader, writter).await {
+        if let Err(err) = tokio::io::copy(reader, writer).await {
             tracing::error!(?err, "Failed to copy to writer");
         }
 
@@ -182,21 +182,21 @@ impl Task {
     }
 
     #[tracing::instrument(skip_all, fields(id=task_id))]
-    async fn copy_stdout<R, W>(task_id: String, reader: &mut R, writter: &mut W)
+    async fn copy_stdout<R, W>(task_id: String, reader: &mut R, writer: &mut W)
     where
         R: AsyncRead + Unpin + ?Sized,
         W: AsyncWrite + Unpin + ?Sized,
     {
-        Self::copy_io(reader, writter).await;
+        Self::copy_io(reader, writer).await;
     }
 
     #[tracing::instrument(skip_all, fields(id=task_id))]
-    async fn copy_stderr<R, W>(task_id: String, reader: &mut R, writter: &mut W)
+    async fn copy_stderr<R, W>(task_id: String, reader: &mut R, writer: &mut W)
     where
         R: AsyncRead + Unpin + ?Sized,
         W: AsyncWrite + Unpin + ?Sized,
     {
-        Self::copy_io(reader, writter).await;
+        Self::copy_io(reader, writer).await;
     }
 
     #[tracing::instrument(skip_all, fields(id=self.id(), timeout))]
