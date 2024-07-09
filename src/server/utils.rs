@@ -18,8 +18,8 @@ pub enum GoogleConvertLinkError {
 pub fn convert_google_share_or_view_url_to_download_url(
     share_url: url::Url,
 ) -> Result<url::Url, GoogleConvertLinkError> {
-    let schme = share_url.scheme();
-    if schme != "https" {
+    let scheme = share_url.scheme();
+    if scheme != "https" {
         return Err(GoogleConvertLinkError::InvalidScheme);
     }
 
