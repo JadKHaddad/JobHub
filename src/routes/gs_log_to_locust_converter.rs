@@ -1,6 +1,6 @@
 use crate::server::{
     extractors::{chat_id::ChatId, query::Query},
-    state::{ApiState, GsLogToLocstConverterError},
+    state::{ApiState, GsLogToLocustConverterError},
 };
 use axum::{
     extract::State,
@@ -23,10 +23,10 @@ pub enum GsLogToLocustConverterErrorResponse {
     NotFound,
 }
 
-impl From<GsLogToLocstConverterError> for GsLogToLocustConverterErrorResponse {
-    fn from(err: GsLogToLocstConverterError) -> Self {
+impl From<GsLogToLocustConverterError> for GsLogToLocustConverterErrorResponse {
+    fn from(err: GsLogToLocustConverterError) -> Self {
         match err {
-            GsLogToLocstConverterError::NotFound => GsLogToLocustConverterErrorResponse::NotFound,
+            GsLogToLocustConverterError::NotFound => GsLogToLocustConverterErrorResponse::NotFound,
         }
     }
 }

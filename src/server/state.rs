@@ -147,11 +147,11 @@ impl ApiStateInner {
         &self,
         chat_id: String,
         project_name: String,
-    ) -> Result<String, GsLogToLocstConverterError> {
+    ) -> Result<String, GsLogToLocustConverterError> {
         let project_dir = self.project_dir(&project_name);
 
         if !project_dir.exists() {
-            return Err(GsLogToLocstConverterError::NotFound);
+            return Err(GsLogToLocustConverterError::NotFound);
         }
 
         let id = self.increment_current_task_id().to_string();
@@ -199,7 +199,7 @@ impl ApiStateInner {
                 .unwrap_or("python3")
                 .to_string();
 
-            let path_to_gs_log_to_locst_converter_script = PathBuf::from("ML_ETL")
+            let path_to_gs_log_to_locust_converter_script = PathBuf::from("ML_ETL")
                 .join("GS")
                 .join("Logfiles")
                 .join("GSLogToLocustConverter.py")
@@ -209,7 +209,7 @@ impl ApiStateInner {
             let project_dir = project_dir.to_string_lossy().to_string();
 
             let args = vec![
-                path_to_gs_log_to_locst_converter_script,
+                path_to_gs_log_to_locust_converter_script,
                 String::from("--directory"),
                 project_dir,
                 String::from("--force"),
@@ -303,7 +303,7 @@ impl ApiStateInner {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum GsLogToLocstConverterError {
+pub enum GsLogToLocustConverterError {
     #[error("Project not found")]
     NotFound,
 }
@@ -353,12 +353,12 @@ mod tests {
             .init();
     }
 
-    // cargo test --package job_hub --lib -- server::state::tests::run_gs_log_to_locst_converter_task --exact --nocapture --ignored
+    // cargo test --package job_hub --lib -- server::state::tests::run_gs_log_to_locust_converter_task --exact --nocapture --ignored
     // python .\ML_ETL\GS\Logfiles\GSLogToLocustConverter.py --directory .\projects\project\ --force
     // python3 ML_ETL/GS/Logfiles/GSLogToLocustConverter.py --directory projects/project --force
     #[tokio::test]
     #[ignore = "Observation test"]
-    async fn run_gs_log_to_locst_converter_task() {
+    async fn run_gs_log_to_locust_converter_task() {
         init_tracing();
 
         let api_state = ApiState::new("".to_string(), "projects".to_string());
