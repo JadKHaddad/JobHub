@@ -9,24 +9,24 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-pub struct CancelOkReponse {
+pub struct CancelOkResponse {
     /// Task id that was scheduled for cancellation
     #[schema(example = "0")]
     id: String,
 }
 
 #[derive(Serialize, ToSchema)]
-pub enum CancelErrorReponse {
+pub enum CancelErrorResponse {
     NotFound,
 }
 
-impl IntoResponse for CancelOkReponse {
+impl IntoResponse for CancelOkResponse {
     fn into_response(self) -> Response {
         (StatusCode::OK, Json(self)).into_response()
     }
 }
 
-impl IntoResponse for CancelErrorReponse {
+impl IntoResponse for CancelErrorResponse {
     fn into_response(self) -> Response {
         (StatusCode::NOT_FOUND, Json(self)).into_response()
     }
@@ -55,11 +55,11 @@ pub async fn cancel(
     State(state): State<ApiState>,
     Path(id): Path<String>,
     ChatId(chat_id): ChatId,
-) -> Result<CancelOkReponse, CancelErrorReponse> {
+) -> Result<CancelOkResponse, CancelErrorResponse> {
     let _ = state
         .cancel_task(&id, &chat_id)
         .await
-        .ok_or(CancelErrorReponse::NotFound)?;
+        .ok_or(CancelErrorResponse::NotFound)?;
 
-    Ok(CancelOkReponse { id })
+    Ok(CancelOkResponse { id })
 }
